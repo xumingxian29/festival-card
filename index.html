@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>圣诞贺卡 · 30 秒一张</title>
+<!--
+  可点原型 v0.1 · 2026-11-19（依据用户 5 条反馈修订）
+  1 微信转发：检测微信环境，出图后引导「长按图片 → 发送给朋友」
+  2 文案上图片丑：白卡去掉，祝福语直接融入画面（暗角光晕 + 描边金/白文字）
+  3 音乐选择：内置 2 首纯前端合成旋律（铃儿响叮当 / 平安夜），零音频文件
+  4 图片单调：加了彩灯串、雪堆、礼物、星星、双层飘雪等装饰
+  5 祝福语生动：按当天日期自动匹配（平安夜 → 记得吃苹果），主+副两行文案
+-->
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:#221a14; color:#f3ece2;
+    max-width:480px; margin:0 auto; min-height:100vh;
+    padding-bottom:96px; position:relative; overflow-x:hidden;
+  }
+  /* 页面飘雪 */
+  .snowpage { position:fixed; inset:0; pointer-events:none; z-index:0; }
+  .snowpage i {
+    position:absolute; top:-8px; color:#fff; opacity:.5; font-size:11px;
+    animation:fall linear infinite;
+  }
+  @keyframes fall { to { transform:translateY(105vh); } }
+  header, .steps, section, .gen-bar, footer { position:relative; z-index:1; }
+  header { padding:20px 20px 8px; }
+  header h1 { font-size:22px; font-weight:800; }
+  header p { font-size:13px; color:#b5a48e; margin-top:4px; }
+  .steps { display:flex; gap:6px; padding:10px 20px 0; flex-wrap:wrap; }
+  .steps span { font-size:11px; padding:3px 10px; border-radius:99px; background:#372c22; color:#b5a48e; }
+  .steps span.on { background:#c8352f; color:#fff; font-weight:600; }
+  section { padding:14px 20px 0; }
+  section h2 { font-size:15px; font-weight:700; margin-bottom:10px; }
+  section h2 em { font-style:normal; font-size:12px; color:#b5a48e; font-weight:400; margin-left:6px; }
+  /* 模板卡片 */
+  .tpls { display:flex; gap:10px; }
+  .tpl {
+    flex:1; border-radius:14px; overflow:hidden; border:2.5px solid transparent;
+    cursor:pointer; position:relative; transition:transform .15s;
+  }
+  .tpl:active { transform:scale(.96); }
+  .tpl.sel { border-color:#e6b35a; box-shadow:0 0 12px rgba(230,179,90,.4); }
+  .tpl.sel::after {
+    content:"✓"; position:absolute; top:6px; right:6px; width:20px; height:20px;
+    background:#e6b35a; color:#221a14; border-radius:50%; font-size:12px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .tpl .art { height:110px; display:flex; align-items:center; justify-content:center; font-size:44px; position:relative; overflow:hidden; }
+  .tpl .art i { position:absolute; color:#fff; opacity:.6; font-size:10px; font-style:normal; }
+  .tpl .name { background:#2e241b; text-align:center; font-size:12px; padding:7px 0; color:#d9c9b2; }
+  .art-snow  { background:linear-gradient(170deg,#14224e 0%,#2e4a9e 60%,#3f63bd 100%); }
+  .art-deer  { background:linear-gradient(170deg,#8f1f24 0%,#c0392f 60%,#d9534a 100%); }
+  .art-tree  { background:linear-gradient(170deg,#0e3d22 0%,#1f7a3d 60%,#2c9750 100%); }
+  /* 选择 chips（祝福语 / 音乐共用） */
+  .words, .musics { display:flex; flex-wrap:wrap; gap:8px; }
+  .word, .music {
+    padding:9px 14px; border-radius:99px; background:#2e241b; font-size:13px;
+    border:1.5px solid #463828; color:#c9b79c; cursor:pointer; transition:all .15s;
+  }
+  .word.sel, .music.sel { background:#c8352f; border-color:#c8352f; color:#fff; font-weight:600; }
+  .musictip { font-size:11px; color:#8a7a64; margin-top:8px; line-height:1.6; }
+  /* 生成按钮 */
+  .gen-bar {
+    position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+    width:100%; max-width:480px; padding:12px 20px 18px;
+    background:linear-gradient(to top,#221a14 70%,rgba(34,26,20,0));
+  }
+  .gen {
+    width:100%; padding:15px; border:none; border-radius:14px;
+    background:linear-gradient(135deg,#c8352f,#9e231f); color:#fff; font-size:16px; font-weight:700;
+    cursor:pointer; box-shadow:0 4px 14px rgba(200,53,47,.4);
+  }
+  .gen:active { transform:scale(.98); }
+  /* 结果弹层 */
+  .mask {
+    position:fixed; inset:0; background:rgba(12,8,4,.82);
+    display:none; align-items:center; justify-content:center; z-index:10; padding:20px;
+  }
+  .mask.show { display:flex; }
+  .result { background:#2a2118; border-radius:18px; width:100%; max-width:360px; padding:14px; border:1px solid #463828; }
+  .result img { width:100%; border-radius:10px; display:block; }
+  .hint { text-align:center; font-size:13px; color:#d9c9b2; margin:12px 4px 4px; line-height:1.7; }
+  .hint b { color:#e6b35a; }
+  .row { display:flex; gap:10px; margin-top:10px; }
+  .btn { flex:1; padding:12px; border-radius:12px; border:none; font-size:14px; font-weight:600; cursor:pointer; }
+  .btn-redo { background:#3a2f23; color:#d9c9b2; }
+  .btn-share { background:linear-gradient(135deg,#c8352f,#9e231f); color:#fff; }
+  footer { text-align:center; font-size:11px; color:#7d6f5c; padding:26px 20px 0; line-height:1.7; }
+</style>
+</head>
+<body>
+<div class="snowpage" id="snowpage"></div>
+
+<header>
+  <h1>圣诞贺卡 🎄</h1>
+  <p>选个模板、选句祝福，30 秒生成一张发给朋友</p>
+</header>
+<div class="steps">
+  <span class="on" id="s1">1 选模板</span>
+  <span id="s2">2 选祝福</span>
+  <span id="s3">3 生成</span>
+</div>
+
+<section>
+  <h2>选个模板 <em>点一下就换，不用上传任何东西</em></h2>
+  <div class="tpls">
+    <div class="tpl sel" data-t="snow" onclick="pickTpl(this)">
+      <div class="art art-snow">❄️<i style="left:14%;top:22%">·</i><i style="left:70%;top:35%">·</i><i style="left:40%;top:70%">·</i><i style="left:85%;top:60%">·</i></div><div class="name">雪花夜</div>
+    </div>
+    <div class="tpl" data-t="deer" onclick="pickTpl(this)">
+      <div class="art art-deer">🦌<i style="left:20%;top:25%">✦</i><i style="left:75%;top:60%">✦</i><i style="left:55%;top:15%">✦</i></div><div class="name">红鼻麋鹿</div>
+    </div>
+    <div class="tpl" data-t="tree" onclick="pickTpl(this)">
+      <div class="art art-tree">🎄<i style="left:15%;top:60%">✦</i><i style="left:70%;top:20%">✦</i><i style="left:45%;top:45%">✦</i></div><div class="name">圣诞树下</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>选句祝福 <em>都是现成的，一个字都不用打</em></h2>
+  <div class="words" id="words"></div>
+</section>
+
+<section>
+  <h2>背景音乐 <em>点开网页时响，营造氛围</em></h2>
+  <div class="musics" id="musics">
+    <div class="music sel" data-m="off" onclick="pickMusic(this)">🔇 不要音乐</div>
+    <div class="music" data-m="jingle" onclick="pickMusic(this)">🔔 铃儿响叮当</div>
+    <div class="music" data-m="silent" onclick="pickMusic(this)">🌙 平安夜</div>
+  </div>
+  <p class="musictip">音乐用浏览器现场合成（无音频文件、零上传）；长按保存的是图片，不含声音——正式小程序版可做「卡片 + 音乐」一起发。</p>
+</section>
+
+<div class="gen-bar"><button class="gen" onclick="generate()">生成我的贺卡 →</button></div>
+
+<div class="mask" id="mask" onclick="if(event.target===this) closeMask()">
+  <div class="result">
+    <img id="out" alt="生成的贺卡">
+    <p class="hint" id="hint"></p>
+    <div class="row">
+      <button class="btn btn-redo" onclick="closeMask()">再做一张</button>
+      <button class="btn btn-share" onclick="doShare()">发给朋友</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  v0.1 可点原型 · 2026-11-19 · 依你的反馈修订<br>
+  微信里：长按卡片图片 → 「发送给朋友」/「保存图片」<br>
+  全程零上传 · 零键盘 · 零账号
+</footer>
+
+<script>
+var IN_WX = /MicroMessenger/i.test(navigator.userAgent);
+var TPL = "snow";
+
+/* —— 祝福语：按当天日期自动加一条（平安夜/圣诞节专属） —— */
+var _d = new Date(), _m = _d.getMonth() + 1, _day = _d.getDate();
+var IS_PINGAN = (_m === 12 && _day === 24), IS_XMAS = (_m === 12 && _day === 25);
+var WORDS = [
+  IS_PINGAN ? { t:"今天是平安夜，记得吃苹果 🍎", s:"圣诞快乐，祝你来年好运" } : null,
+  IS_XMAS   ? { t:"今天是圣诞节 🎄", s:"愿你许的愿望都被认真实现" } : null,
+  { t:"圣诞快乐，祝你来年好运", s:"平安喜乐，万事顺遂" },
+  { t:"冬天很冷，你很暖", s:"愿有人陪你暖手到天亮" },
+  { t:"愿你被这个世界温柔以待", s:"圣诞快乐，来年也要平安" },
+  { t:"麋鹿把礼物送到了 🎁", s:"打开它，里面装着你的好运" }
+].filter(Boolean);
+var word = 0;
+
+var DATELINE = "· " + _m + "月" + _day + "日" + (IS_PINGAN ? " · 平安夜 ·" : IS_XMAS ? " · 圣诞节 ·" : " · 2026 圣诞季 ·");
+
+/* —— 祝福语 chips —— */
+var box = document.getElementById("words");
+WORDS.forEach(function(w, i){
+  var b = document.createElement("div");
+  b.className = "word" + (i === 0 ? " sel" : "");
+  b.textContent = w.t;
+  b.onclick = function(){
+    word = i;
+    [].forEach.call(box.children, function(c){ c.classList.remove("sel"); });
+    b.classList.add("sel");
+    step(1);
+  };
+  box.appendChild(b);
+});
+
+/* —— 页面飘雪 —— */
+var sp = document.getElementById("snowpage");
+for (var i = 0; i < 22; i++){
+  var f = document.createElement("i");
+  f.textContent = "❄";
+  f.style.left = (Math.random() * 96) + "%";
+  f.style.fontSize = (7 + Math.random() * 9) + "px";
+  f.style.opacity = 0.25 + Math.random() * 0.4;
+  f.style.animationDuration = (7 + Math.random() * 9) + "s";
+  f.style.animationDelay = (-Math.random() * 10) + "s";
+  sp.appendChild(f);
+}
+
+function pickTpl(el){
+  TPL = el.dataset.t;
+  document.querySelectorAll(".tpl").forEach(function(t){ t.classList.remove("sel"); });
+  el.classList.add("sel");
+  step(1);
+}
+function step(n){
+  document.getElementById("s" + n).classList.add("on");
+}
+
+/* —— 音乐：Web Audio 现场合成，无音频文件 —— */
+var N = { C4:261.63, D4:293.66, E4:329.63, F4:349.23, G4:392, A4:440, B4:493.88,
+          C5:523.25, D5:587.33, E5:659.25 };
+var SONGS = {
+  /* 铃儿响叮当（片段循环） */
+  jingle: [
+    [N.E4,1],[N.E4,1],[N.E4,2],[N.E4,1],[N.E4,1],[N.E4,2],
+    [N.E4,1],[N.G4,1],[N.C4,1],[N.D4,1],[N.E4,3],[0,0.5],
+    [N.F4,1],[N.F4,1],[N.F4,1.5],[N.F4,.5],[N.F4,1],[N.E4,1],[N.E4,1],[N.E4,.5],[N.E4,.5],
+    [N.E4,1],[N.D4,1],[N.D4,1],[N.E4,1],[N.D4,2],[N.G4,2],[0,1]
+  ],
+  /* 平安夜（3/4 拍片段循环） */
+  silent: [
+    [N.G4,1],[N.A4,1],[N.G4,1],[N.E4,3],[N.G4,1],[N.A4,1],[N.G4,1],[N.E4,3],
+    [N.D5,1.5],[N.D5,.5],[N.B4,2],[N.C5,1.5],[N.C5,.5],[N.G4,2],
+    [N.A4,1],[N.A4,1],[N.C5,1],[N.B4,1],[N.G4,1.5],[N.A4,.5],[N.G4,1],[N.E4,2],
+    [N.G4,1],[N.G4,1],[N.A4,1],[N.B4,1],[N.C5,2],[0,1]
+  ]
+};
+var BG = 0.30;                       /* 一拍秒数 */
+var au = { ctx:null, timer:null, cur:"off" };
+
+function pickMusic(el){
+  document.querySelectorAll(".music").forEach(function(m){ m.classList.remove("sel"); });
+  el.classList.add("sel");
+  playSong(el.dataset.m);
+}
+
+function playSong(name){
+  stopSong();
+  if (name === "off") return;
+  try {
+    au.ctx = au.ctx || new (window.AudioContext || window.webkitAudioContext)();
+    if (au.ctx.state === "suspended") au.ctx.resume();
+    au.cur = name;
+    scheduleLoop(SONGS[name]);
+  } catch (e) {}
+}
+function stopSong(){ if (au.timer) clearTimeout(au.timer); au.timer = null; au.cur = "off"; }
+function tone(f, t, dur){
+  var o = au.ctx.createOscillator(), g = au.ctx.createGain();
+  o.type = "triangle"; o.frequency.value = f;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.22, t + 0.03);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(au.ctx.destination);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+function scheduleLoop(seq){
+  var t = au.ctx.currentTime + 0.06, walk = t;
+  seq.forEach(function(nd){
+    if (nd[0]) tone(nd[0], walk, nd[1] * BG * 0.92);
+    walk += nd[1] * BG;
+  });
+  au.timer = setTimeout(function(){
+    if (au.cur !== "off") scheduleLoop(seq);
+  }, (walk - au.ctx.currentTime - 0.12) * 1000);
+}
+
+/* —— canvas 合成：祝福语融入画面，白卡已删 —— */
+function renderCard(tpl, w){
+  var c = document.createElement("canvas");
+  c.width = 750; c.height = 1000;
+  var g = c.getContext("2d");
+  var theme = {
+    snow: { bg:["#14224e","#2e4a9e","#3f63bd"], deco:"❄", hero:"❄️", tag:"雪花夜" },
+    deer: { bg:["#8f1f24","#c0392f","#d9534a"], deco:"✦", hero:"🦌", tag:"红鼻麋鹿" },
+    tree: { bg:["#0e3d22","#1f7a3d","#2c9750"], deco:"✦", hero:"🎄", tag:"圣诞树下" }
+  }[tpl];
+
+  var gr = g.createLinearGradient(0, 0, 0, 1000);
+  gr.addColorStop(0, theme.bg[0]); gr.addColorStop(0.62, theme.bg[1]); gr.addColorStop(1, theme.bg[2]);
+  g.fillStyle = gr; g.fillRect(0, 0, 750, 1000);
+
+  /* 双层飘雪：远层小而密、近层大而疏（固定坐标，出图稳定） */
+  var far = [[40,150],[120,90],[210,190],[300,120],[380,220],[470,100],[560,180],[650,90],[710,210],
+             [70,380],[190,330],[330,300],[450,360],[590,320],[700,380],[50,560],[240,520],
+             [380,560],[520,530],[680,560],[140,820],[420,860],[640,800]];
+  g.textAlign = "center";
+  g.fillStyle = "rgba(255,255,255,.5)";
+  far.forEach(function(p, i){ g.font = (10 + (i % 4) * 3) + "px serif"; g.fillText(theme.deco, p[0], p[1]); });
+  var near = [[100,240],[520,270],[640,470],[160,600],[360,180],[700,660]];
+  g.fillStyle = "rgba(255,255,255,.85)";
+  near.forEach(function(p, i){ g.font = (18 + (i % 3) * 8) + "px serif"; g.fillText(theme.deco, p[0], p[1]); });
+
+  /* 顶部彩灯串：深绿绳 + 彩色灯泡 */
+  g.strokeStyle = "#1e4d2b"; g.lineWidth = 5;
+  g.beginPath(); g.moveTo(-10, 60);
+  g.quadraticCurveTo(187, 150, 375, 90); g.quadraticCurveTo(562, 150, 760, 60);
+  g.stroke();
+  var bulbs = ["#ff5a4e","#ffd35c","#6ee7a0","#6aa9ff","#ff9ad5"];
+  for (var i = 0; i <= 12; i++){
+    var x = i * 62.5, y = 60 + Math.sin((i / 12) * Math.PI) * 74;
+    g.fillStyle = bulbs[i % 5];
+    g.shadowColor = bulbs[i % 5]; g.shadowBlur = 12;
+    g.beginPath(); g.arc(x, y + 12, 9, 0, 7); g.fill();
+    g.shadowBlur = 0;
+  }
+
+  /* 主题形象 + 光晕 */
+  g.shadowColor = "rgba(255,235,170,.55)"; g.shadowBlur = 60;
+  g.font = "170px serif";
+  g.fillText(theme.hero, 375, 380);
+  g.shadowBlur = 0;
+
+  /* 小装饰：礼物 / 星星 / 铃铛 / 雪花，分布在角落 */
+  g.font = "54px serif"; g.fillText("🎁", 110, 880);
+  g.font = "40px serif"; g.fillText("✨", 660, 700);
+  g.font = "44px serif"; g.fillText("🔔", 640, 880);
+  g.font = "34px serif"; g.fillText("❅", 90, 640);
+
+  /* 主标题（字间距用空格实现） */
+  g.font = "800 84px 'PingFang SC','Microsoft YaHei',sans-serif";
+  g.fillStyle = "#fff";
+  g.shadowColor = "rgba(0,0,0,.45)"; g.shadowBlur = 18; g.shadowOffsetY = 3;
+  g.fillText("圣 诞 快 乐", 375, 500);
+  g.shadowBlur = 0; g.shadowOffsetY = 0;
+
+  /* 分隔饰线 */
+  g.fillStyle = "rgba(230,179,90,.95)"; g.font = "26px serif";
+  g.fillText("✦ ─── ❅ ─── ✦", 375, 552);
+
+  /* 祝福语融入画面：文字直接落在暗角光晕上，不再用白卡 */
+  var glow = g.createRadialGradient(375, 700, 40, 375, 700, 330);
+  glow.addColorStop(0, "rgba(0,0,0,.34)");
+  glow.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = glow; g.fillRect(45, 440, 660, 330);
+
+  var main = wrap(g, w.t, 640, "600 38px 'PingFang SC','Microsoft YaHei',sans-serif");
+  var sub  = wrap(g, w.s, 620, "400 30px 'PingFang SC','Microsoft YaHei',sans-serif");
+  var startY = 700 - ((main.length * 58 + sub.length * 46 + 26) / 2) + 30;
+  main.forEach(function(l, i){
+    g.font = "600 38px 'PingFang SC','Microsoft YaHei',sans-serif";
+    g.fillStyle = "#fff";
+    g.shadowColor = "rgba(0,0,0,.5)"; g.shadowBlur = 12;
+    g.fillText(l, 375, startY + i * 58);
+  });
+  var subY = startY + main.length * 58 + 8;
+  sub.forEach(function(l, i){
+    g.font = "400 30px 'PingFang SC','Microsoft YaHei',sans-serif";
+    g.fillStyle = "#ffe1a1";
+    g.shadowColor = "rgba(0,0,0,.5)"; g.shadowBlur = 10;
+    g.fillText(l, 375, subY + i * 46);
+  });
+  g.shadowBlur = 0;
+
+  /* 日期线（平安夜/圣诞节自动带出） */
+  g.font = "24px serif"; g.fillStyle = "rgba(255,225,161,.9)";
+  g.fillText(DATELINE, 375, 862);
+
+  /* 底部雪堆：两层波浪 */
+  g.fillStyle = "rgba(255,255,255,.92)";
+  g.beginPath(); g.moveTo(0, 930);
+  g.quadraticCurveTo(190, 880, 400, 922); g.quadraticCurveTo(600, 958, 750, 912);
+  g.lineTo(750, 1000); g.lineTo(0, 1000); g.fill();
+  g.fillStyle = "rgba(255,255,255,.55)";
+  g.beginPath(); g.moveTo(0, 968);
+  g.quadraticCurveTo(300, 930, 750, 972); g.lineTo(750, 1000); g.lineTo(0, 1000); g.fill();
+
+  g.fillStyle = "rgba(60,50,40,.65)"; g.font = "20px sans-serif";
+  g.fillText("来自一位朋友的圣诞贺卡", 375, 985);
+  return c.toDataURL("image/png");
+}
+
+function wrap(g, text, maxW, font){
+  g.font = font;
+  var lines = [], cur = "";
+  for (var i = 0; i < text.length; i++){
+    if (g.measureText(cur + text[i]).width > maxW){ lines.push(cur); cur = text[i]; }
+    else cur += text[i];
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+function generate(){
+  document.getElementById("out").src = renderCard(TPL, WORDS[word]);
+  document.getElementById("mask").classList.add("show");
+  document.getElementById("s3").classList.add("on");
+  var h = document.getElementById("hint");
+  h.innerHTML = IN_WX
+    ? "<b>微信里这样发：</b>长按上面的图片 → 「发送给朋友」，或「保存图片」后发到群里"
+    : "<b>长按图片</b>可保存到相册，保存后发给朋友";
+}
+
+function closeMask(){ document.getElementById("mask").classList.remove("show"); }
+
+function doShare(){
+  if (IN_WX) {
+    alert("微信里没有直接调起的分享：长按贺卡图片，选「发送给朋友」就行。\n（正式小程序版点这个按钮会直接拉起微信分享卡片，带缩略图和标题）");
+  } else if (navigator.share) {
+    navigator.share({ title: "圣诞贺卡", text: "给你做了一张圣诞贺卡 🎄", url: location.href }).catch(function(){});
+  } else {
+    alert("长按贺卡图片保存，再发给朋友。");
+  }
+}
+</script>
+</body>
+</html>
