@@ -5,15 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>圣诞贺卡 · 30 秒一张</title>
 <!--
-  可点原型 v0.2 · 2026-11-22（按 7 人实测反馈优化）
-  反馈 → 改动对照：
-    1 太单调 ×3 → 模板 3 → 6：全部换成真实 AI 插画图（素材库同源 6 张，共 880KB），
-      渐变色块+emoji 时代结束；祝福语预设 6 → 14 条
-    2 受众太小 → 日期场景句保留 + 落款年份自适应，贺卡可跨年复用
-    3 不能直接发微信/QQ → 支持 Web Share API 的环境（Android Chrome/QQ浏览器/Edge 等）
-      出图后出现「📱 直接分享」按钮，一键调起系统分享直达聊天；微信内仍为长按保存
-      直发（H5 硬限制，小程序版 shareAppMessage 才能真解）
-    4 单调的另一半 → 祝福语可自己写：预设不满足时「自己写一句」输入框（可选，不打字也能玩）
+  可点原型 v0.3 · 2026-11-22（素材库化 + 默认音乐）
+    - 模板与祝福语改为从 library.js「素材库」统一抽取渲染，页面不再硬编码；
+      现有 6 模板 + 14 条祝福语作为基础素材入库，后续扩充只改 library.js
+    - 音乐默认《铃儿响叮当》：首次点击/触摸页面即自动响起，可随时一键关闭
+  v0.2（按 7 人实测反馈优化）：真图模板 ×6 / 自写祝福 / Web Share 一键分享
   v0.1 保留：WebAudio 音乐、长按存图指引、canvas 750×1000 实时合成
 -->
 <style>
@@ -117,7 +113,7 @@
 
 <header>
   <h1>圣诞贺卡 🎄</h1>
-  <p>6 款插画模板、14 句祝福，30 秒生成一张存进相册</p>
+  <p>模板与祝福都来自素材库，30 秒生成一张存进相册</p>
 </header>
 <div class="steps">
   <span class="on" id="s1">1 选模板</span>
@@ -126,25 +122,18 @@
 </div>
 
 <section>
-  <h2>来点音乐 <em>边挑边听，做好的贺卡在微信里发图不发歌</em></h2>
+  <h2>来点音乐 <em>默认《铃儿响叮当》，首次点页面自动响起，可随时关</em></h2>
   <div class="music" id="music">
     <span class="label">♪</span>
-    <div class="song" data-s="bell" onclick="pickSong(this)">🔔 铃儿响叮当</div>
+    <div class="song sel" data-s="bell" onclick="pickSong(this)">🔔 铃儿响叮当</div>
     <div class="song" data-s="silent" onclick="pickSong(this)">🕯️ 平安夜</div>
-    <div class="song sel" data-s="off" onclick="pickSong(this)">🔇 先不用</div>
+    <div class="song" data-s="off" onclick="pickSong(this)">🔇 先不用</div>
   </div>
 </section>
 
 <section>
-  <h2>选个模板 <em>6 款手绘插画，点一下就换</em></h2>
-  <div class="tpls" id="tpls">
-    <div class="tpl sel" data-t="snow"  onclick="pickTpl(this)"><img src="tpl/snow.jpg"  alt=""><div class="name">雪花夜</div></div>
-    <div class="tpl" data-t="pink"  onclick="pickTpl(this)"><img src="tpl/pink.jpg"  alt=""><div class="name">粉紫夜</div></div>
-    <div class="tpl" data-t="deer"  onclick="pickTpl(this)"><img src="tpl/deer.jpg"  alt=""><div class="name">小驯鹿</div></div>
-    <div class="tpl" data-t="tree"  onclick="pickTpl(this)"><img src="tpl/tree.jpg"  alt=""><div class="name">圣诞树下</div></div>
-    <div class="tpl" data-t="apple" onclick="pickTpl(this)"><img src="tpl/apple.jpg" alt=""><div class="name">平安果</div></div>
-    <div class="tpl" data-t="town"  onclick="pickTpl(this)"><img src="tpl/town.jpg"  alt=""><div class="name">小镇夜</div></div>
-  </div>
+  <h2>选个模板 <em id="tplCount">全部来自素材库，点一下就换</em></h2>
+  <div class="tpls" id="tpls"></div>
 </section>
 
 <section>
@@ -172,20 +161,21 @@
 </div>
 
 <footer>
-  v0.2 可点原型 · 2026-11-22（按 7 人实测反馈优化：真图模板 ×6 / 自写祝福 / 一键分享）<br>
+  v0.3 可点原型 · 2026-11-22（模板与祝福从素材库 library.js 抽取 · 音乐默认铃儿响叮当）<br>
   全程零上传 · 零账号 ｜ 音乐为现场合成，保存的图片不含音频
 </footer>
 
+<script src="library.js"></script>
 <script>
 /* ============ 状态 ============ */
-var TPL = "snow";
+var TPL = TPL_LIBRARY[0].id;
 var word = 0;
 var customText = null;   // 用户自写祝福（null = 未用）
 
-/* ============ 模板图预加载 ============ */
+/* ============ 模板图预加载（清单来自素材库） ============ */
 var IMGS = {};
-["snow","pink","deer","tree","apple","town"].forEach(function(n){
-  var im = new Image(); im.src = "tpl/" + n + ".jpg"; IMGS[n] = im;
+TPL_LIBRARY.forEach(function(t){
+  var im = new Image(); im.src = t.src; IMGS[t.id] = im;
 });
 
 /* ============ 音乐（WebAudio 现场合成，零外部资源） ============ */
@@ -229,10 +219,26 @@ function pickSong(el){
   document.querySelectorAll(".song").forEach(function(s){
     s.classList.remove("sel"); s.classList.remove("playing");
   });
-  if (key === "off") { stopMusic(); el.classList.add("sel"); return; }
+  if (key === "off") { musicOn = false; stopMusic(); el.classList.add("sel"); return; }
+  musicOn = true; songKey = key;
   el.classList.add("sel"); el.classList.add("playing");
   playMusic(key);
 }
+
+/* 默认《铃儿响叮当》：浏览器禁止无手势自动播放，
+   首次点击/触摸页面任意位置即自动响起 */
+var songKey = "bell";     // 默认曲目
+var musicOn = null;       // null = 待启动（等首次手势）
+function ensureMusic(){
+  if (musicOn === null){
+    musicOn = true;
+    var el = document.querySelector('.song[data-s="bell"]');
+    if (el) el.classList.add("playing");
+    playMusic(songKey);
+  }
+}
+document.addEventListener("touchstart", ensureMusic, {passive:true});
+document.addEventListener("click", ensureMusic);
 
 /* ============ 祝福语：场景句（按日期）+ 通用预设 ============ */
 var YEAR = new Date().getFullYear();
@@ -244,22 +250,7 @@ function sceneGreeting(){
   if (m===1 && day===1)  return { tag:"✨ 今天是元旦", text:"新年快乐，圣诞的愿望接着实现 🎆" };
   return null;
 }
-var WORDS = [
-  "圣诞快乐，祝你来年好运 🎁",
-  "冬天很冷，你很暖 ☃️",
-  "今天的雪好大，愿望要实现啦 ❄️",
-  "愿你被这世界温柔以待 🕯️",
-  "平安夜记得吃苹果，平平安安 🍎",
-  "Merry Christmas，心想事成 ✨",
-  "愿你的十二月，天天都有小确幸 🎄",
-  "雪落无声，思念有声，圣诞快乐 ⛄",
-  "新的一年，把烦恼都留给冬天 🎅",
-  "灯火通明处，皆是归途，节日快乐 🏮",
-  "愿所有的好运，都在路上向你飞奔 🌟",
-  "今年最后一个月，对你好一点 🗓️",
-  "一起看初雪的人，要一起很久 🤍",
-  "铃儿响，祝福到，圣诞快乐，没完没了 🔔"
-];
+var GREETING_LIBRARY = GREETING_LIBRARY || [];  // 素材库（library.js）
 
 function renderWords(){
   var box = document.getElementById("words");
@@ -271,7 +262,7 @@ function renderWords(){
     box.appendChild(tag);
     addWord(box, scene.text, true);
   }
-  WORDS.forEach(function(w){ addWord(box, w, false); });
+  GREETING_LIBRARY.forEach(function(w){ addWord(box, w, false); });
   if (customText) addWord(box, "✏️ " + customText, false);
   word = scene ? 0 : 1;
   [].forEach.call(box.querySelectorAll(".word"), function(c,i){ c.classList.toggle("sel", i===word); });
@@ -301,7 +292,23 @@ function useCustom(){
 }
 renderWords();
 
-/* ============ 模板选择 ============ */
+/* ============ 模板选择（卡片由素材库渲染） ============ */
+function renderTpls(){
+  var box = document.getElementById("tpls");
+  box.innerHTML = "";
+  TPL_LIBRARY.forEach(function(t){
+    var d = document.createElement("div");
+    d.className = "tpl" + (t.id === TPL ? " sel" : "");
+    d.dataset.t = t.id;
+    d.innerHTML = '<img src="' + t.src + '" alt=""><div class="name">' + t.name + '</div>';
+    d.onclick = function(){ pickTpl(d); };
+    box.appendChild(d);
+  });
+  var em = document.getElementById("tplCount");
+  if (em) em.textContent = TPL_LIBRARY.length + " 款手绘插画（素材库 v1），点一下就换";
+}
+renderTpls();
+
 function pickTpl(el){
   TPL = el.dataset.t;
   document.querySelectorAll(".tpl").forEach(function(t){ t.classList.remove("sel"); });
@@ -315,21 +322,19 @@ function step(n){
 }
 
 /* ============ canvas 合成：750×1000，真图模板 ============ */
-/* 每款模板的文字配色与遮罩按图微调 */
-var THEMES = {
-  snow:  { tag:"· 雪花夜 ·",  scrim:["rgba(8,16,40,.42)","rgba(8,16,40,.62)"], title:"#ffffff", sub:"#ffe3a3" },
-  pink:  { tag:"· 粉紫夜 ·",  scrim:["rgba(60,20,80,.34)","rgba(60,20,80,.58)"], title:"#ffffff", sub:"#ffe3a3" },
-  deer:  { tag:"· 小驯鹿 ·",  scrim:["rgba(40,10,10,.30)","rgba(40,10,10,.60)"], title:"#ffffff", sub:"#ffe9b8" },
-  tree:  { tag:"· 圣诞树下 ·", scrim:["rgba(6,26,14,.30)","rgba(6,26,14,.62)"], title:"#ffffff", sub:"#ffe3a3" },
-  apple: { tag:"· 平安果 ·",  scrim:["rgba(50,20,5,.30)","rgba(50,20,5,.62)"], title:"#fff8ec", sub:"#ffd98a" },
-  town:  { tag:"· 小镇夜 ·",  scrim:["rgba(8,14,34,.34)","rgba(8,14,34,.64)"], title:"#ffffff", sub:"#ffe3a3" }
-};
+/* 每款模板的文字配色与遮罩存在素材库条目里，按图微调 */
+function themeOf(id){
+  for (var i=0;i<TPL_LIBRARY.length;i++){
+    if (TPL_LIBRARY[i].id === id) return TPL_LIBRARY[i];
+  }
+  return TPL_LIBRARY[0];
+}
 
 function renderCard(tpl, text){
   var c = document.createElement("canvas");
   c.width = 750; c.height = 1000;
   var g = c.getContext("2d");
-  var theme = THEMES[tpl];
+  var theme = themeOf(tpl);
 
   /* 真图背景：cover 裁剪铺满（图源 750×1125，居中裁到 750×1000） */
   var im = IMGS[tpl];
@@ -427,7 +432,7 @@ function generate(){
   var text;
   var all = [].slice.call(document.querySelectorAll("#words .word"));
   if (customText && all[word] && all[word].textContent.indexOf("✏️") === 0) text = customText;
-  else text = all[word] ? all[word].textContent : WORDS[0];
+  else text = all[word] ? all[word].textContent : GREETING_LIBRARY[0];
   if (text.indexOf("✏️ ") === 0) text = text.slice(2);
   lastDataUrl = renderCard(TPL, text);
   document.getElementById("out").src = lastDataUrl;
