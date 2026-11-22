@@ -2,14 +2,25 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>圣诞贺卡 · 30 秒一张</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>心意贺卡 · 30 秒一张</title>
 <!--
-  可点原型 v0.8 · 2026-11-22
-    - 「🎴 更换卡片」点击即生效：模板与祝福立刻变换，首页大图同步刷新（抽卡弹层仅做结果展示）
-    - 祝福语自写输入框移到首页「🖼️ 做成贺卡」按钮上方
-  v0.7 音乐默认播放·素材库只预览 / v0.6 抽卡 / v0.5 收到祝福界面 / v0.3 素材库化 / v0.2 一键分享
+  心意贺卡 v0.9.0 · 2026-11-22（按改进清单实施，去掉每日免费抽）
+    P0 传播闭环：
+      ① 收卡链接：#g= 编码模板+祝福，收卡人打开是「拆贺卡」页，可一键做自己的
+      ② 成品图右下角二维码（个人化收卡链接）+「扫码也做一张」
+      ③ 微信内智能引导长按发送；结果页新增「🔗 复制收卡链接」
+    P1 抽卡体验：
+      ④ 拆卡仪式感：先封套后揭晓 ⑤ 5★ 全屏金光 + 叮音效 ⑥ 收集图鉴（集齐称号）
+    P1 内容：
+      ⑧ 模板 6→12（圣诞池 + 日常池：生日/加油/表白/道歉/跨年/新年）
+      ⑨ 祝福语 14→40 条，按关系分类（恋人/朋友/长辈/同学同事），可过滤
+    P2：
+      ⑩ 首页祝福语点一下可直接微调 ⑪ localStorage 埋点（连点版本号3次导出）
+      ⑫ ?mode=random|gacha A/B 分流 ⑬ 首屏加载进度条 ⑭ 版本号 ⑮ iOS 兼容处理
+  历史版本：v0.8 换卡即生效 / v0.7 音乐默认 / v0.6 抽卡 / v0.5 收到祝福 / v0.3 素材库化 / v0.2 一键分享
 -->
+<script src="lib/qrcode.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   body {
@@ -18,12 +29,19 @@
     max-width:480px; margin:0 auto; min-height:100vh;
     padding-bottom:40px;
   }
+  /* 加载进度条 */
+  #loader {
+    position:fixed; inset:0; background:#f4f1ec; z-index:99;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    transition:opacity .4s;
+  }
+  #loader .ld-t { font-size:16px; color:#8a7f72; margin-bottom:16px; letter-spacing:2px; }
+  #loader .bar { width:220px; height:6px; background:#e8e2d8; border-radius:99px; overflow:hidden; }
+  #loader .bar i { display:block; height:100%; width:0; background:#b3282d; border-radius:99px; transition:width .3s; }
+  #loader .ld-p { font-size:12px; color:#b5aa9a; margin-top:10px; }
   header { padding:20px 20px 8px; }
   header h1 { font-size:22px; font-weight:800; }
   header p { font-size:13px; color:#8a7f72; margin-top:4px; }
-  .steps { display:flex; gap:6px; padding:10px 20px 0; flex-wrap:wrap; }
-  .steps span { font-size:11px; padding:3px 10px; border-radius:99px; background:#e8e2d8; color:#8a7f72; }
-  .steps span.on { background:#b3282d; color:#fff; font-weight:600; }
   section { padding:14px 20px 0; }
   section h2 { font-size:15px; font-weight:700; margin-bottom:10px; }
   section h2 em { font-style:normal; font-size:12px; color:#8a7f72; font-weight:400; margin-left:6px; }
@@ -37,7 +55,7 @@
   .song.sel { background:#2e4a9e; border-color:#2e4a9e; color:#fff; font-weight:600; }
   .song.playing { animation:pulse 1.2s infinite; }
   @keyframes pulse { 50% { opacity:.6; } }
-  /* 模板卡片：6 张真图，两行三列 */
+  /* 模板卡片 */
   .tpls { display:flex; flex-wrap:wrap; gap:10px; }
   .tpl {
     width:calc((100% - 20px)/3); border-radius:14px; overflow:hidden;
@@ -47,12 +65,23 @@
   .tpl:active { transform:scale(.96); }
   .tpl img { width:100%; height:105px; object-fit:cover; display:block; }
   .tpl .name { background:#fff; text-align:center; font-size:12px; padding:6px 0; }
+  .tpl .pool-tag {
+    position:absolute; top:6px; left:6px; font-size:9px; padding:1px 6px;
+    border-radius:99px; background:rgba(255,255,255,.85); color:#5a4f42;
+  }
   .tpl.sel { border-color:#b3282d; }
   .tpl.sel::after {
     content:"✓"; position:absolute; top:6px; right:6px; width:20px; height:20px;
     background:#b3282d; color:#fff; border-radius:50%; font-size:12px;
     display:flex; align-items:center; justify-content:center;
   }
+  /* 「送给谁」过滤 */
+  .catrow { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+  .catchip {
+    padding:7px 13px; border-radius:99px; background:#fff; font-size:12px;
+    border:1.5px solid #e0d8cb; color:#8a7f72; cursor:pointer;
+  }
+  .catchip.sel { background:#5a4f42; border-color:#5a4f42; color:#fff; font-weight:600; }
   /* 祝福语 */
   .words { display:flex; flex-wrap:wrap; gap:8px; }
   .word {
@@ -75,7 +104,6 @@
     background:#5a4f42; color:#fff; cursor:pointer; flex-shrink:0;
   }
   .custom .hintx { font-size:11px; color:#b5aa9a; width:100%; }
-  /* 生成按钮（素材库折叠区内） */
   .gen {
     width:100%; padding:15px; border:none; border-radius:14px;
     background:#b3282d; color:#fff; font-size:16px; font-weight:700;
@@ -85,7 +113,7 @@
   /* 结果弹层 */
   .mask {
     position:fixed; inset:0; background:rgba(20,14,8,.72);
-    display:none; align-items:center; justify-content:center; z-index:10; padding:24px;
+    display:none; align-items:center; justify-content:center; z-index:30; padding:24px;
   }
   .mask.show { display:flex; }
   .result { background:#fff; border-radius:18px; width:100%; max-width:360px; padding:16px; max-height:92vh; overflow-y:auto; }
@@ -93,18 +121,26 @@
   .hint { font-size:13px; color:#5a4f42; line-height:1.7; margin:12px 0 4px; }
   .hint b { color:#b3282d; }
   .hint small { display:block; color:#8a7f72; font-size:11px; margin-top:4px; }
-  .row { display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; }
-  .btn { flex:1; padding:12px; border-radius:12px; border:none; font-size:14px; font-weight:600; cursor:pointer; min-width:120px; }
+  .row { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .btn { flex:1; padding:12px; border-radius:12px; border:none; font-size:13px; font-weight:600; cursor:pointer; min-width:110px; }
   .btn-redo { background:#efe9df; color:#5a4f42; }
   .btn-save { background:#b3282d; color:#fff; }
   .btn-share { background:#2e7d32; color:#fff; }
+  .btn-copy { background:#6f93c4; color:#fff; }
   footer { text-align:center; font-size:11px; color:#b5aa9a; padding:26px 20px 0; line-height:1.7; }
-  /* 「收到了一个祝福」hero 区 */
+  #verInfo { cursor:pointer; }
+  /* hero 区 */
   .received { text-align:center; font-size:12px; color:#8a7f72; padding-top:22px; letter-spacing:3px; }
   .hero { padding:0 20px; text-align:center; }
   .ver { font-size:13px; color:#6f93c4; letter-spacing:6px; margin-top:14px; }
   .hero h1 { font-size:30px; font-weight:800; color:#2b2118; margin-top:8px; letter-spacing:2px; }
-  .greet { font-size:14px; color:#5a4f42; margin-top:12px; line-height:1.7; padding:0 12px; }
+  .greet { font-size:14px; color:#5a4f42; margin-top:12px; line-height:1.7; padding:0 12px; cursor:text; }
+  .greet .greet-edit {
+    width:100%; max-width:320px; padding:10px 14px; border-radius:12px;
+    border:1.5px solid #b3282d; font-size:14px; color:#2b2118; background:#fff;
+    outline:none; text-align:center;
+  }
+  .greet-edit-hint { font-size:10px; color:#b5aa9a; margin-top:4px; }
   .hero-img {
     margin:20px auto 0; max-width:320px; border-radius:18px; overflow:hidden;
     box-shadow:0 10px 28px rgba(43,33,24,.20); background:#e8e2d8; cursor:pointer;
@@ -127,8 +163,19 @@
     border-radius:99px; background:#fff; color:#b3282d;
     font-size:14px; font-weight:600; cursor:pointer;
   }
-  /* 抽卡结果层 */
   .pity { font-size:11px; color:#b5aa9a; margin-top:8px; }
+  .lib-row { display:flex; align-items:center; gap:14px; margin-top:18px; justify-content:center; }
+  .lib-toggle { background:none; border:none; color:#b5aa9a; font-size:11px; cursor:pointer; padding:6px 0; }
+  .lib-toggle:hover { color:#8a7f72; }
+  #builder h2 { margin-top:22px; }
+  #builder .gen { margin-top:16px; }
+  .tpl-preview { margin-top:12px; text-align:center; }
+  .tpl-preview img {
+    max-width:220px; border-radius:14px; display:block; margin:0 auto;
+    box-shadow:0 6px 18px rgba(43,33,24,.18);
+  }
+  .tpl-preview .tpname { font-size:12px; color:#8a7f72; margin-top:8px; line-height:1.7; }
+  /* 抽卡层 */
   .gacha {
     position:fixed; inset:0; background:rgba(14,10,6,.92); z-index:20;
     display:none; align-items:center; justify-content:center; padding:20px;
@@ -139,12 +186,10 @@
   .gacha.reveal .g-pop { opacity:1; transform:scale(1); }
   .g-title2 { color:#f5c342; font-size:14px; font-weight:700; letter-spacing:2px; margin-bottom:12px; }
   .g-stars { font-size:24px; letter-spacing:8px; }
-  .g-wrap .g-stars, .g-cellstars, .g-cell.r3 .g-stars { color:#6f93c4; }
-  .r4 .g-stars, .g-cell.r4 .g-cellstars { color:#9b59d0; }
-  .r5 .g-stars, .g-cell.r5 .g-cellstars { color:#f5c342; }
-  .g-img {
-    width:100%; max-width:300px; border-radius:16px; display:block; margin:14px auto 0;
-  }
+  .g-wrap .g-stars { color:#6f93c4; }
+  .r4 .g-stars { color:#9b59d0; }
+  .r5 .g-stars { color:#f5c342; }
+  .g-img { width:100%; max-width:300px; border-radius:16px; display:block; margin:14px auto 0; }
   .g-wrap.r3 .g-img { box-shadow:0 0 24px rgba(111,147,196,.5); border:2px solid #6f93c4; }
   .g-wrap.r4 .g-img { box-shadow:0 0 34px rgba(155,89,208,.55); border:2px solid #9b59d0; }
   .g-wrap.r5 .g-img { box-shadow:0 0 44px rgba(245,195,66,.6); border:2px solid #f5c342; }
@@ -158,51 +203,102 @@
   .g-btns button { padding:11px 16px; border-radius:99px; border:none; font-size:13px; font-weight:600; cursor:pointer; }
   .g-again { background:#6f93c4; color:#fff; }
   .g-skip  { background:#efe9df; color:#5a4f42; }
-  .g-grid { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
-  .g-cell {
-    width:calc((100% - 16px)/3); position:relative; border-radius:10px;
-    overflow:hidden; background:#241d14; cursor:pointer; padding-bottom:4px;
+  /* ④ 拆卡封套 */
+  .seal-wrap { cursor:pointer; display:inline-block; }
+  .seal {
+    width:200px; height:280px; margin:0 auto; border-radius:20px;
+    background:radial-gradient(circle at 50% 40%, #3a2b18 0%, #1c140a 70%);
+    border:2px solid rgba(245,195,66,.55);
+    display:flex; align-items:center; justify-content:center;
+    animation:sealPulse 1.6s ease-in-out infinite;
   }
-  .g-cell img { width:100%; height:72px; object-fit:cover; display:block; }
-  .g-cellname { font-size:10px; color:#fff; padding-top:3px; }
-  .g-cellstars { font-size:9px; letter-spacing:1px; }
-  .g-cell.r3 { border:1.5px solid #6f93c4; }
-  .g-cell.r4 { border:1.5px solid #9b59d0; }
-  .g-cell.r5 { border:1.5px solid #f5c342; }
-  .g-cell .g-new { position:absolute; top:4px; left:4px; margin:0; }
-  .lib-row { display:flex; align-items:center; justify-content:flex-start; margin-top:18px; }
-  .lib-toggle { background:none; border:none; color:#b5aa9a; font-size:11px; cursor:pointer; padding:6px 0; }
-  .lib-toggle:hover { color:#8a7f72; }
-  .reroll {
-    background:#efe9df; border:none; border-radius:99px; padding:7px 14px;
-    font-size:12px; color:#5a4f42; cursor:pointer;
+  .seal .seal-mark { font-size:56px; filter:drop-shadow(0 0 18px rgba(245,195,66,.8)); }
+  .seal-hint { color:#f5c342; font-size:13px; letter-spacing:4px; margin-top:16px; animation:pulse 1.6s infinite; }
+  @keyframes sealPulse {
+    0%,100% { box-shadow:0 0 22px rgba(245,195,66,.25); transform:scale(1); }
+    50%     { box-shadow:0 0 46px rgba(245,195,66,.55); transform:scale(1.03); }
   }
-  .reroll:active { transform:scale(.96); }
-  #builder h2 { margin-top:22px; }
-  #builder .gen { margin-top:16px; }
-  .tpl-preview { margin-top:12px; text-align:center; }
-  .tpl-preview img {
-    max-width:220px; border-radius:14px; display:block; margin:0 auto;
-    box-shadow:0 6px 18px rgba(43,33,24,.18);
+  /* ⑤ 出金特效 */
+  #flash { position:fixed; inset:0; z-index:50; pointer-events:none; opacity:0; }
+  #flash.go { animation:goldFlash .9s ease-out; }
+  @keyframes goldFlash {
+    0%   { opacity:0; background:rgba(255,214,90,.0); }
+    25%  { opacity:1; background:rgba(255,214,90,.55); }
+    100% { opacity:0; background:rgba(255,214,90,0); }
   }
-  .tpl-preview .tpname { font-size:12px; color:#8a7f72; margin-top:8px; line-height:1.7; }
+  /* ⑥ 图鉴 */
+  .book {
+    position:fixed; inset:0; background:rgba(14,10,6,.92); z-index:40;
+    display:none; align-items:center; justify-content:center; padding:20px;
+  }
+  .book.show { display:flex; }
+  .book-box { width:100%; max-width:420px; max-height:88vh; overflow-y:auto; background:#221a12; border-radius:18px; padding:18px; }
+  .book-title { color:#f5c342; font-size:16px; font-weight:800; text-align:center; letter-spacing:2px; }
+  .book-sub { color:#c9b998; font-size:12px; text-align:center; margin-top:6px; }
+  .book-grid { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; justify-content:center; }
+  .book-cell {
+    width:calc((100% - 20px)/3); border-radius:12px; overflow:hidden;
+    background:#2e2619; border:1.5px solid #3a2f1e; text-align:center; padding-bottom:6px;
+  }
+  .book-cell img { width:100%; height:82px; object-fit:cover; display:block; filter:brightness(1); }
+  .book-cell.no img { filter:brightness(.18) grayscale(1); }
+  .book-cell .bname { font-size:11px; color:#e8dcc0; padding-top:4px; }
+  .book-cell.no .bname { color:#6b5f4c; }
+  .book-cell .bstars { font-size:10px; letter-spacing:1px; }
+  .book-cell.r3 .bstars { color:#6f93c4; }
+  .book-cell.r4 .bstars { color:#9b59d0; }
+  .book-cell.r5 .bstars { color:#f5c342; }
+  .book-cell .bdone { font-size:9px; color:#b3282d; background:#fff; border-radius:99px; padding:1px 6px; display:inline-block; margin-top:2px; }
+  .book-close { margin-top:14px; width:100%; padding:12px; border:none; border-radius:99px; background:#f5c342; color:#3a2b18; font-size:14px; font-weight:700; cursor:pointer; }
+  /* ① 收卡页 */
+  .receive {
+    position:fixed; inset:0; background:#12203c; z-index:60;
+    display:none; align-items:center; justify-content:center; padding:24px; text-align:center;
+  }
+  .receive.show { display:flex; }
+  .rv-box { width:100%; max-width:360px; }
+  .rv-gift { font-size:72px; animation:sealPulse 1.8s ease-in-out infinite; }
+  .rv-title { color:#fff; font-size:22px; font-weight:800; margin-top:18px; letter-spacing:2px; }
+  .rv-sub { color:#9fb4dd; font-size:13px; margin-top:10px; line-height:1.7; }
+  .rv-open {
+    margin-top:24px; padding:16px 44px; border:none; border-radius:99px;
+    background:#f5c342; color:#3a2b18; font-size:17px; font-weight:800; cursor:pointer;
+    box-shadow:0 6px 20px rgba(245,195,66,.4); letter-spacing:4px;
+  }
+  .rv-open:active { transform:scale(.97); }
+  .rv-card { background:rgba(255,255,255,.06); border-radius:18px; padding:16px; }
+  .rv-card .ver { color:#9fb4dd; }
+  .rv-card h2 { color:#fff; font-size:26px; font-weight:800; margin-top:10px; letter-spacing:2px; }
+  .rv-card .greet { color:#ffe9c0; }
+  .rv-card img { width:100%; max-width:300px; border-radius:16px; margin-top:16px; display:block; margin-left:auto; margin-right:auto; box-shadow:0 0 40px rgba(245,195,66,.35); }
+  .rv-btns { display:flex; gap:10px; margin-top:20px; justify-content:center; flex-wrap:wrap; }
+  .rv-btns button { padding:13px 20px; border-radius:99px; border:none; font-size:14px; font-weight:700; cursor:pointer; }
+  .rv-mine { background:#b3282d; color:#fff; }
+  .rv-save { background:#2e7d32; color:#fff; }
 </style>
 </head>
 <body>
 
-<p class="received">收到了一个祝福 · 冬日限定</p>
+<div id="loader">
+  <div class="ld-t">🎄 素材装订中…</div>
+  <div class="bar"><i id="ldBar"></i></div>
+  <div class="ld-p" id="ldPct">0%</div>
+</div>
+
+<p class="received">收到了一个祝福 · 每日限定</p>
 
 <div class="hero">
   <p class="ver" id="verTag"></p>
   <h1 id="cardTitle"></h1>
-  <p class="greet" id="greetLine"></p>
+  <p class="greet" id="greetLine" onclick="editGreet()" title="点一下可以直接改字"></p>
+  <p class="greet-edit-hint" id="greetHint">祝福语可以直接点一下改字 ✏️</p>
   <div class="hero-img" id="heroImg">
     <img id="heroCard" alt="当前贺卡插画">
   </div>
   <p class="tap-hint">圣诞音乐已默认开启，点按钮可关 🔔</p>
   <div class="hero-btns">
     <button class="h-main" id="musicBtn" onclick="toggleMusic()">🎵 圣诞音乐 · 开</button>
-    <button class="h-sub" onclick="wish()">🎴 更换卡片</button>
+    <button class="h-sub" id="wishBtn" onclick="wish()">🎴 更换卡片</button>
   </div>
   <p class="pity" id="pityTip"></p>
   <div class="custom">
@@ -212,6 +308,7 @@
   <button class="h-mini" onclick="generate()">🖼️ 做成贺卡，保存 / 分享</button>
   <div class="lib-row">
     <button class="lib-toggle" onclick="toggleLib('builder', this)">📚 素材库 ▾</button>
+    <button class="lib-toggle" onclick="openBook()">📖 我的图鉴</button>
   </div>
 </div>
 
@@ -219,6 +316,8 @@
   <h2>选个模板 <em>点击只做预览，不会改动当前卡片；换卡请用「更换卡片」</em></h2>
   <div class="tpls" id="tpls"></div>
   <div class="tpl-preview" id="tplPreview"></div>
+  <h2>送给谁 <em>过滤一下，祝福更得体</em></h2>
+  <div class="catrow" id="catRow"></div>
   <h2>选句祝福 <em>都是现成的，点一句就换成这句</em></h2>
   <div class="words" id="words"></div>
   <button class="gen" onclick="generate()">用这套做贺卡 →</button>
@@ -230,6 +329,7 @@
     <p class="hint" id="hint"></p>
     <div class="row">
       <button class="btn btn-share" id="shareBtn" onclick="shareImg()">📱 直接分享</button>
+      <button class="btn btn-copy" onclick="copyLink()">🔗 复制收卡链接</button>
       <button class="btn btn-redo" onclick="closeMask()">再做一张</button>
       <button class="btn btn-save" onclick="saveTip()">怎么发朋友？</button>
     </div>
@@ -240,28 +340,93 @@
   <div class="gacha-box" id="gachaBox"></div>
 </div>
 
+<div id="flash"></div>
+
+<div class="book" id="book" onclick="if(event.target===this) closeBook()">
+  <div class="book-box">
+    <div class="book-title">📖 我的图鉴</div>
+    <div class="book-sub" id="bookSub"></div>
+    <div class="book-grid" id="bookGrid"></div>
+    <button class="book-close" onclick="closeBook()">关闭图鉴</button>
+  </div>
+</div>
+
+<div class="receive" id="receive">
+  <div class="rv-box" id="rvBox"></div>
+</div>
+
 <footer>
-  v0.8.1 可点原型 · 2026-11-22（修复：初始化顺序致「更换卡片」失效）<br>
-  全程零上传 · 零账号 ｜ 音乐为现场合成，保存的图片不含音频
+  <span id="verInfo">v0.9.0 可点原型 · 2026-11-22</span><br>
+  全程零上传 · 零账号 ｜ 音乐为现场合成，保存的图片不含音频<br>
+  <span id="modeTag"></span>
 </footer>
 
 <script src="library.js"></script>
 <script>
-/* ============ 状态（随机抽取） ============ */
+var VERSION = "v0.9.0";
+
+/* ============ ⑪ 轻量埋点（纯本地，连点版本号 3 次导出） ============ */
+var STATS = { open:0, receive:0, wish:0, gen:0, share:0, copylink:0 };
+try {
+  var _st = JSON.parse(localStorage.getItem("xmasStats") || "null");
+  if (_st) STATS = _st;
+} catch(e){}
+STATS.open++;
+function saveStats(){ try { localStorage.setItem("xmasStats", JSON.stringify(STATS)); } catch(e){} }
+saveStats();
+var verTaps = 0;
+function verInfoTap(){
+  verTaps++;
+  if (verTaps >= 3){
+    verTaps = 0;
+    try { navigator.clipboard && navigator.clipboard.writeText(JSON.stringify(STATS)); } catch(e){}
+    alert("埋点数据（已尝试复制到剪贴板）：\n" + JSON.stringify(STATS, null, 2));
+  }
+}
+
+/* ============ ⑫ A/B 分流：?mode=random 走随机换卡，默认 gacha ============ */
+var MODE = "gacha";
+(function(){
+  var m = location.search.match(/[?&]mode=(random|gacha)/);
+  if (m) MODE = m[1];
+})();
+
+/* ============ 状态 ============ */
 function randPick(n){ return Math.floor(Math.random() * n); }
 var TPL = TPL_LIBRARY[randPick(TPL_LIBRARY.length)].id;
 var word = 0;
-var customText = null;   // 用户自写祝福（null = 未用）
+var customText = null;
+var catFilter = "all";   // 送给谁：all / love / friend / elder / mate
+var GREETING_LIBRARY = GREETING_LIBRARY || [];
 
-/* ============ 模板图预加载（清单来自素材库） ============ */
+/* ============ ⑬ 加载进度条 + 模板图预加载 ============ */
 var IMGS = {};
+var PL_DONE = 0, PL_TOTAL = TPL_LIBRARY.length, loaderHidden = false;
+function updateLoader(){
+  var pct = Math.round(PL_DONE / PL_TOTAL * 100);
+  var bar = document.getElementById("ldBar"), p = document.getElementById("ldPct");
+  if (bar) bar.style.width = pct + "%";
+  if (p) p.textContent = pct + "%";
+  if (PL_DONE >= PL_TOTAL) hideLoader();
+}
+function hideLoader(){
+  if (loaderHidden) return;
+  loaderHidden = true;
+  var ld = document.getElementById("loader");
+  if (ld){ ld.style.opacity = "0"; setTimeout(function(){ ld.style.display = "none"; }, 420); }
+}
 TPL_LIBRARY.forEach(function(t){
-  var im = new Image(); im.src = t.src; IMGS[t.id] = im;
+  var im = new Image();
+  im.onload = function(){ PL_DONE++; updateLoader(); };
+  im.onerror = function(){ PL_DONE++; updateLoader(); };
+  im.src = t.src; IMGS[t.id] = im;
 });
+setTimeout(hideLoader, 6000);   // 弱网兜底
 
-/* ============ 音乐（WebAudio 现场合成，零外部资源） ============ */
+/* ============ 音乐（WebAudio 现场合成） ============ */
 var NOTES = {"C4":261.63,"D4":293.66,"E4":329.63,"F4":349.23,"G4":392.00,"A4":440.00,"B4":493.88,
-             "C5":523.25,"D5":587.33,"E5":659.25,"F5":698.46,"G5":783.99};
+             "C5":523.25,"D5":587.33,"E5":659.25,"F5":698.46,"G5":783.99,
+             "C6":1046.5,"E6":1318.5,"G6":1568.0};
 var SONGS = {
   bell: { bpm:150, seq:[["E5",1],["E5",1],["E5",2],["E5",1],["E5",1],["E5",2],
           ["E5",1],["G5",1],["C5",1.5],["D5",0.5],["E5",4],
@@ -279,25 +444,22 @@ function stopMusic(){
   if (musicTimer) { clearTimeout(musicTimer); musicTimer = null; }
   if (ac) { try { ac.close(); } catch(e){} ac = null; }
 }
-function tone(freq, at, dur){
-  var o = ac.createOscillator(), g = ac.createGain();
+function tone(freq, at, dur, ctx, dest){
+  var o = ctx.createOscillator(), g = ctx.createGain();
   o.type = "triangle"; o.frequency.value = freq;
   g.gain.setValueAtTime(0.0001, at);
   g.gain.linearRampToValueAtTime(0.11, at + 0.03);
   g.gain.exponentialRampToValueAtTime(0.001, at + dur);
-  o.connect(g); g.connect(ac.destination);
+  o.connect(g); g.connect(dest || ctx.destination);
   o.start(at); o.stop(at + dur + 0.1);
 }
 function playMusic(key){
   stopMusic();
   ac = new (window.AudioContext || window.webkitAudioContext)();
   var s = SONGS[key], beat = 60 / s.bpm, t = ac.currentTime + 0.05;
-  s.seq.forEach(function(n){ tone(NOTES[n[0]], t, n[1]*beat*0.92); t += n[1]*beat; });
+  s.seq.forEach(function(n){ tone(NOTES[n[0]], t, n[1]*beat*0.92, ac); t += n[1]*beat; });
   musicTimer = setTimeout(function(){ playMusic(key); }, (t - ac.currentTime + 0.6) * 1000);
 }
-/* 圣诞音乐：默认《铃儿响叮当》且默认开启。
-   浏览器禁止无手势出声——加载时先尝试播放，
-   被拦则等首次点击/触摸自动续上 */
 var songKey = "bell";
 var musicOn = true;
 var musicBtn = document.getElementById("musicBtn");
@@ -310,17 +472,59 @@ function toggleMusic(){
   if (musicOn){ startMusicNow(); if (musicBtn) musicBtn.textContent = "🎵 圣诞音乐 · 开"; }
   else { stopMusic(); if (musicBtn) musicBtn.textContent = "🎵 圣诞音乐 · 关"; }
 }
-startMusicNow();   // 尝试默认播放（无手势时会被浏览器拦下）
+startMusicNow();
 var _musicResumed = false;
 function resumeMusicOnce(){
   if (_musicResumed || !musicOn) return;
   _musicResumed = true;
+  if (ac && ac.state === "suspended") { try { ac.resume(); } catch(e){} }
   startMusicNow();
 }
 document.addEventListener("touchstart", resumeMusicOnce, {passive:true});
+document.addEventListener("touchend", resumeMusicOnce, {passive:true});
 document.addEventListener("click", resumeMusicOnce);
 
-/* ============ 祝福语：场景句（按日期）+ 通用预设 ============ */
+/* ⑤ 出金音效（独立短音，不干扰背景音乐） */
+function playChime(r){
+  try {
+    var c = new (window.AudioContext || window.webkitAudioContext)();
+    var notes = r === 5 ? ["C6","E6","G6"] : ["E5","G5"];
+    var t = c.currentTime + 0.02;
+    notes.forEach(function(n, i){
+      var o = c.createOscillator(), g = c.createGain();
+      o.type = "sine"; o.frequency.value = NOTES[n];
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.22, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      o.connect(g); g.connect(c.destination);
+      o.start(t + i * 0.09); o.stop(t + i * 0.09 + 0.6);
+    });
+    setTimeout(function(){ try { c.close(); } catch(e){} }, 1500);
+  } catch(e){}
+}
+
+/* ============ ① 收卡链接编码 ============ */
+function b64e(str){ return btoa(unescape(encodeURIComponent(str))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
+function b64d(s){
+  s = s.replace(/-/g,"+").replace(/_/g,"/");
+  while (s.length % 4) s += "=";
+  return decodeURIComponent(escape(atob(s)));
+}
+function makeReceiveLink(tplId, text){
+  var base = location.href.split("#")[0];
+  return base + "#g=" + b64e(JSON.stringify({ t:tplId, w:text }));
+}
+function parseIncomingCard(){
+  var m = location.hash.match(/#g=([A-Za-z0-9\-_]+)/);
+  if (!m) return null;
+  try {
+    var o = JSON.parse(b64d(m[1]));
+    if (o && themeOf(o.t) && o.w && typeof o.w === "string") return o;
+  } catch(e){}
+  return null;
+}
+
+/* ============ 祝福语：场景句 + 关系过滤 ============ */
 var YEAR = new Date().getFullYear();
 function sceneGreeting(){
   var d = new Date(), m = d.getMonth()+1, day = d.getDate();
@@ -330,8 +534,34 @@ function sceneGreeting(){
   if (m===1 && day===1)  return { tag:"✨ 今天是元旦", text:"新年快乐，圣诞的愿望接着实现 🎆" };
   return null;
 }
-var GREETING_LIBRARY = GREETING_LIBRARY || [];  // 素材库（library.js）
-
+var CATS = [
+  { key:"all",    label:"全部 🎁" },
+  { key:"love",   label:"恋人 💕" },
+  { key:"friend", label:"朋友 🤝" },
+  { key:"elder",  label:"长辈 🧣" },
+  { key:"mate",   label:"同学同事 📚" }
+];
+function filteredGreetings(){
+  if (catFilter === "all") return GREETING_LIBRARY;
+  return GREETING_LIBRARY.filter(function(g){
+    return g.cat.length === 0 || g.cat.indexOf(catFilter) >= 0;
+  });
+}
+function renderCats(){
+  var box = document.getElementById("catRow");
+  box.innerHTML = "";
+  CATS.forEach(function(c){
+    var b = document.createElement("div");
+    b.className = "catchip" + (c.key === catFilter ? " sel" : "");
+    b.textContent = c.label;
+    b.onclick = function(){
+      catFilter = c.key;
+      renderCats();
+      renderWords();
+    };
+    box.appendChild(b);
+  });
+}
 function renderWords(){
   var box = document.getElementById("words");
   box.innerHTML = "";
@@ -342,9 +572,8 @@ function renderWords(){
     box.appendChild(tag);
     addWord(box, scene.text, true);
   }
-  GREETING_LIBRARY.forEach(function(w){ addWord(box, w.t, false); });
+  filteredGreetings().forEach(function(w){ addWord(box, w.t, false); });
   if (customText) addWord(box, "✏️ " + customText, false);
-  /* 随机抽一句（含场景句与自定义） */
   var chips = [].slice.call(box.querySelectorAll(".word"));
   word = randPick(chips.length);
   chips[word].classList.add("sel");
@@ -353,11 +582,11 @@ function renderWords(){
 /* hero 区随当前模板与祝福同步刷新 */
 function renderHero(){
   var t = themeOf(TPL);
-  document.getElementById("verTag").textContent = t.ver + " · 冬日限定";
-  document.getElementById("cardTitle").textContent = "冬日限定" + t.name;
+  document.getElementById("verTag").textContent = t.ver + " · " + (t.pool === "xmas" ? "冬日限定" : "今日限定");
+  document.getElementById("cardTitle").textContent = t.prefix + t.name;
   document.getElementById("heroCard").src = t.src;
   var chips = [].slice.call(document.querySelectorAll("#words .word"));
-  var line = chips[word] ? chips[word].textContent : GREETING_LIBRARY[0].t;
+  var line = chips[word] ? chips[word].textContent : (filteredGreetings()[0] || {t:""}).t;
   document.getElementById("greetLine").textContent = line.replace(/^✏️ /, "");
 }
 function addWord(box, text, isScene){
@@ -376,6 +605,9 @@ function addWord(box, text, isScene){
 function useCustom(){
   var v = document.getElementById("myword").value.trim();
   if (!v) return;
+  applyCustom(v);
+}
+function applyCustom(v){
   customText = v;
   renderWords();
   var all = [].slice.call(document.querySelectorAll("#words .word"));
@@ -383,8 +615,29 @@ function useCustom(){
   all[word].classList.add("sel");
   renderHero();
 }
+/* ⑩ 首页祝福语点击微调 */
+function editGreet(){
+  var el = document.getElementById("greetLine");
+  if (el.querySelector(".greet-edit")) return;
+  var cur = el.textContent;
+  el.innerHTML = '<input class="greet-edit" id="greetEdit" maxlength="40">';
+  var inp = el.querySelector(".greet-edit");
+  inp.value = cur;
+  inp.focus();
+  inp.onkeydown = function(e){ if (e.key === "Enter") commitGreet(); };
+  inp.onblur = commitGreet;
+}
+function commitGreet(){
+  var el = document.getElementById("greetLine");
+  var inp = el.querySelector(".greet-edit");
+  if (!inp) return;
+  var v = inp.value.trim();
+  el.innerHTML = "";
+  if (v && v !== customText) applyCustom(v);
+  else renderHero();
+}
 
-/* ============ 模板（随机展示 + 素材库折叠自选） ============ */
+/* ============ 模板（随机展示 + 素材库折叠自选，仅预览） ============ */
 function renderTpls(){
   var box = document.getElementById("tpls");
   box.innerHTML = "";
@@ -392,21 +645,23 @@ function renderTpls(){
     var d = document.createElement("div");
     d.className = "tpl" + (t.id === TPL ? " sel" : "");
     d.dataset.t = t.id;
-    d.innerHTML = '<img src="' + t.src + '" alt=""><div class="name">' + t.name + '</div>';
+    d.innerHTML = '<span class="pool-tag">' + (t.pool === "xmas" ? "圣诞" : "日常") + '</span>' +
+      '<img src="' + t.src + '" alt=""><div class="name">' + t.name + '</div>';
     d.onclick = function(){ pickTpl(d); };
     box.appendChild(d);
   });
   renderHero();
 }
-function rerollTpl(){
-  var pool = TPL_LIBRARY.filter(function(t){ return t.id !== TPL; });
-  TPL = pool[randPick(pool.length)].id;
-  renderHero();
+/* 素材库模板点击 = 仅预览，不改当前卡片 */
+function previewTpl(el){
+  var t = themeOf(el.dataset.t);
+  document.getElementById("tplPreview").innerHTML =
+    '<img src="' + t.src + '" alt="">' +
+    '<div class="tpname">「' + t.name + '」· 素材库预览（不影响当前卡片）<br>想换卡请回首页点「更换卡片」</div>';
 }
+function pickTpl(el){ previewTpl(el); }
 
-/* ============ 祈愿（原神式抽卡） ============ */
-/* 模板池与祝福池共享一套保底：每 10 抽必出 4★+，每 30 抽必出 5★；
-   基础概率 5★ 6% / 4★ 15% / 3★ 79%。抽卡记录与保底进度存 localStorage */
+/* ============ 抽卡引擎 ============ */
 var GK = { c:0, p4:0, p5:0, got:{} };
 try {
   var _gk = JSON.parse(localStorage.getItem("xmasGacha") || "null");
@@ -430,6 +685,7 @@ function rollRarity(){
 }
 function drawFrom(pool, r){
   var cand = pool.filter(function(x){ return x.r === r; });
+  if (!cand.length) cand = pool;
   return cand[randPick(cand.length)];
 }
 function renderPity(){
@@ -437,31 +693,68 @@ function renderPity(){
   if (el) el.textContent =
     "已祈愿 " + GK.c + " 次 ｜ " + (10 - GK.p4) + " 抽内必出 4★+ · " + (30 - GK.p5) + " 抽内必出 5★";
 }
+function starHTML(r){
+  var s = ""; for (var i=0;i<r;i++) s += "★"; return s;
+}
 
-var lastPulls = [];
 function wish(){
+  STATS.wish++; saveStats();
+  if (MODE === "random"){ plainReroll(); return; }
   var r = rollRarity();
   var t = drawFrom(TPL_LIBRARY, r);
-  /* 避免连续两次抽到同一模板：同星级内换一个 */
   if (t.id === TPL){
     var alt = TPL_LIBRARY.filter(function(x){ return x.r === r && x.id !== TPL; });
     if (alt.length) t = alt[randPick(alt.length)];
   }
-  var w = drawFrom(GREETING_LIBRARY, r);
+  var pool = filteredGreetings();
+  var w = drawFrom(pool, r);
   var isNew = !GK.got["t"+t.id];
   GK.got["t"+t.id] = 1;
   saveGK();
-  /* 立即生效：首页大图（预览）与祝福同步变换，弹层只做结果展示 */
   applyPair(t.id, w.t);
   showGacha([{ tpl:t, word:w, r:r, isNew:isNew }]);
   renderPity();
 }
-function starHTML(r){
-  var s = ""; for (var i=0;i<r;i++) s += "★"; return s;
+/* ⑫ random 模式：无星级无弹层，直接随机换 */
+function plainReroll(){
+  var pool = TPL_LIBRARY.filter(function(t){ return t.id !== TPL; });
+  TPL = pool[randPick(pool.length)].id;
+  var gl = filteredGreetings();
+  var w = gl[randPick(gl.length)];
+  applyPair(TPL, w.t);
 }
+function applyPair(tplId, wordText){
+  TPL = tplId;
+  var chips = [].slice.call(document.querySelectorAll("#words .word"));
+  word = 0;
+  for (var i=0;i<chips.length;i++){
+    if (chips[i].textContent === wordText || chips[i].textContent === "✏️ " + wordText){ word = i; break; }
+  }
+  chips.forEach(function(c,i){ c.classList.toggle("sel", i===word); });
+  renderHero();
+}
+
+/* ④ 两段式抽卡：封套 → 揭晓 */
+var lastPulls = [];
 function showGacha(pulls){
   lastPulls = pulls;
   var p = pulls[0];
+  var box = document.getElementById("gachaBox");
+  box.innerHTML =
+    '<div class="g-pop g-wrap r'+p.r+'">' +
+      '<div class="seal-wrap" onclick="revealPull()">' +
+        '<div class="seal"><div class="seal-mark">🎁</div></div>' +
+        '<div class="seal-hint">轻点揭开</div>' +
+      '</div>' +
+    '</div>';
+  var g = document.getElementById("gacha");
+  g.classList.remove("reveal");
+  g.classList.add("show");
+  setTimeout(function(){ g.classList.add("reveal"); }, 60);
+}
+function revealPull(){
+  var p = lastPulls[0];
+  if (!p) { closeGacha(); return; }
   document.getElementById("gachaBox").innerHTML =
     '<div class="g-pop g-wrap r'+p.r+'">' +
       '<div class="g-stars">'+starHTML(p.r)+'</div>' +
@@ -473,20 +766,16 @@ function showGacha(pulls){
       '<button class="g-again" onclick="wish()">🎴 再换一张</button>' +
       '<button class="g-skip" onclick="closeGacha()">知道了</button>' +
     '</div>';
-  var g = document.getElementById("gacha");
-  g.classList.remove("reveal");
-  g.classList.add("show");
-  setTimeout(function(){ g.classList.add("reveal"); }, 60);
-}
-function applyPair(tplId, wordText){
-  TPL = tplId;
-  var chips = [].slice.call(document.querySelectorAll("#words .word"));
-  word = 0;
-  for (var i=0;i<chips.length;i++){
-    if (chips[i].textContent === wordText || chips[i].textContent === "✏️ " + wordText){ word = i; break; }
+  /* ⑤ 出金特效 + 音效 */
+  if (p.r === 5){
+    var f = document.getElementById("flash");
+    f.classList.remove("go");
+    void f.offsetWidth;
+    f.classList.add("go");
+    playChime(5);
+  } else if (p.r === 4){
+    playChime(4);
   }
-  chips.forEach(function(c,i){ c.classList.toggle("sel", i===word); });
-  renderHero();
 }
 function closeGacha(){
   var g = document.getElementById("gacha");
@@ -499,33 +788,68 @@ function toggleLib(id, btn){
   el.style.display = opening ? "" : "none";
   btn.textContent = opening ? "📚 收起素材库 ▴" : "📚 素材库 ▾";
 }
-/* 素材库模板点击 = 仅预览，不改当前卡片；换卡只走「更换卡片」 */
-function previewTpl(el){
-  var t = themeOf(el.dataset.t);
-  document.getElementById("tplPreview").innerHTML =
-    '<img src="' + t.src + '" alt="">' +
-    '<div class="tpname">「' + t.name + '」· 素材库预览（不影响当前卡片）<br>想换卡请回首页点「🎴 更换卡片」</div>';
+
+/* ============ ⑥ 图鉴 ============ */
+function openBook(){
+  var grid = document.getElementById("bookGrid");
+  grid.innerHTML = "";
+  var got = 0;
+  TPL_LIBRARY.forEach(function(t){
+    var has = !!GK.got["t"+t.id];
+    if (has) got++;
+    var d = document.createElement("div");
+    d.className = "book-cell r" + t.r + (has ? "" : " no");
+    d.innerHTML =
+      (has ? '<img src="'+t.src+'" alt="">' : '<img src="'+t.src+'" alt="">') +
+      '<div class="bname">' + (has ? t.name : "？？？") + '</div>' +
+      '<div class="bstars">' + starHTML(t.r) + '</div>' +
+      (has ? '<span class="bdone">已点亮</span>' : '');
+    grid.appendChild(d);
+  });
+  var all = got === TPL_LIBRARY.length;
+  document.getElementById("bookSub").textContent =
+    "已点亮 " + got + " / " + TPL_LIBRARY.length +
+    (all ? " ｜ 🏆 全图鉴达成 · 心意收藏家！" : " ｜ 继续抽卡点亮更多贺卡");
+  document.getElementById("book").classList.add("show");
 }
-function pickTpl(el){
-  previewTpl(el);
+function closeBook(){
+  document.getElementById("book").classList.remove("show");
 }
 
-/* ============ canvas 合成：750×1000，真图模板 ============ */
-/* 每款模板的文字配色与遮罩存在素材库条目里，按图微调 */
+/* ============ canvas 合成：750×1000 + ② 回流二维码 ============ */
 function themeOf(id){
   for (var i=0;i<TPL_LIBRARY.length;i++){
     if (TPL_LIBRARY[i].id === id) return TPL_LIBRARY[i];
   }
   return TPL_LIBRARY[0];
 }
-
-function renderCard(tpl, text){
+function drawQr(g, link, x, y, box){
+  try {
+    var qr = qrcode(0, "M");
+    qr.addData(link); qr.make();
+    var n = qr.getModuleCount();
+    var quiet = 2;
+    var cell = Math.floor(box / (n + quiet * 2));
+    var size = cell * (n + quiet * 2);
+    var ox = x + (box - size) / 2, oy = y + (box - size) / 2;
+    g.fillStyle = "rgba(255,255,255,.94)";
+    g.fillRect(x - 4, y - 4, box + 8, box + 8);
+    g.fillStyle = "#1a1410";
+    for (var r = 0; r < n; r++){
+      for (var c = 0; c < n; c++){
+        if (qr.isDark(r, c)) g.fillRect(ox + (c + quiet) * cell, oy + (r + quiet) * cell, cell, cell);
+      }
+    }
+    return true;
+  } catch(e){ return false; }
+}
+function renderCard(tpl, text, receiveLink){
   var c = document.createElement("canvas");
   c.width = 750; c.height = 1000;
   var g = c.getContext("2d");
   var theme = themeOf(tpl);
+  var isXmas = theme.pool === "xmas";
 
-  /* 真图背景：cover 裁剪铺满（图源 750×1125，居中裁到 750×1000） */
   var im = IMGS[tpl];
   if (im && im.complete && im.naturalWidth){
     var dh = 750 * im.naturalHeight / im.naturalWidth;
@@ -536,33 +860,41 @@ function renderCard(tpl, text){
     g.fillStyle = gr; g.fillRect(0,0,750,1000);
   }
 
-  /* 顶部彩灯串 */
-  var bulbs = ["#ff5a5a","#ffd166","#7be382","#6fb7ff"];
-  g.strokeStyle = "rgba(255,255,255,.30)"; g.lineWidth = 3;
-  g.beginPath();
-  for (var x=0; x<=750; x+=50){
-    var midY = 92 + ((x/50)%2)*18;
-    g.quadraticCurveTo(x+25, midY+14, x+50, 92);
-  }
-  g.stroke();
-  for (var i=0; i<15; i++){
-    var bx = 38 + i*48, by = 104 + (i%2)*16;
-    g.fillStyle = "rgba(255,220,150,.28)";
-    g.beginPath(); g.arc(bx, by, 16, 0, 7); g.fill();
-    g.fillStyle = bulbs[i%4];
-    g.beginPath(); g.arc(bx, by, 8, 0, 7); g.fill();
+  /* 顶部装饰：圣诞池彩灯+雪花；日常池星星彩点 */
+  if (isXmas){
+    var bulbs = ["#ff5a5a","#ffd166","#7be382","#6fb7ff"];
+    g.strokeStyle = "rgba(255,255,255,.30)"; g.lineWidth = 3;
+    g.beginPath();
+    for (var x=0; x<=750; x+=50){
+      var midY = 92 + ((x/50)%2)*18;
+      g.quadraticCurveTo(x+25, midY+14, x+50, 92);
+    }
+    g.stroke();
+    for (var i=0; i<15; i++){
+      var bx = 38 + i*48, by = 104 + (i%2)*16;
+      g.fillStyle = "rgba(255,220,150,.28)";
+      g.beginPath(); g.arc(bx, by, 16, 0, 7); g.fill();
+      g.fillStyle = bulbs[i%4];
+      g.beginPath(); g.arc(bx, by, 8, 0, 7); g.fill();
+    }
+    var pts = [[60,190,22],[190,160,14],[330,200,18],[470,160,14],[610,200,20],[690,170,12]];
+    pts.forEach(function(p,i){
+      g.globalAlpha = 0.5 + (i%3)*0.15;
+      g.font = p[2] + "px serif"; g.textAlign = "center";
+      g.fillText("❄", p[0], p[1]);
+    });
+    g.globalAlpha = 1;
+  } else {
+    var stars = [[60,120,20],[200,90,14],[360,140,24],[520,90,16],[660,130,20],[110,230,12],[620,230,12]];
+    stars.forEach(function(p,i){
+      g.globalAlpha = 0.4 + (i%3)*0.2;
+      g.font = p[2] + "px serif"; g.textAlign = "center";
+      g.fillText("✦", p[0], p[1]);
+    });
+    g.globalAlpha = 1;
   }
 
-  /* 飘雪点缀 */
-  var pts = [[60,190,22],[190,160,14],[330,200,18],[470,160,14],[610,200,20],[690,170,12]];
-  pts.forEach(function(p,i){
-    g.globalAlpha = 0.5 + (i%3)*0.15;
-    g.font = p[2] + "px serif"; g.textAlign = "center";
-    g.fillText("❄", p[0], p[1]);
-  });
-  g.globalAlpha = 1;
-
-  /* 文字区遮罩：保证在插画上仍可读 */
+  /* 文字区遮罩 */
   var sc = g.createLinearGradient(0,430,0,1000);
   sc.addColorStop(0, theme.scrim[0]); sc.addColorStop(1, theme.scrim[1]);
   g.fillStyle = sc; g.fillRect(0,430,750,570);
@@ -577,10 +909,10 @@ function renderCard(tpl, text){
   g.shadowColor = "rgba(0,0,0,.55)"; g.shadowBlur = 8; g.shadowOffsetY = 4;
   g.font = "800 92px 'Kaiti SC','STKaiti','KaiTi',serif";
   g.fillStyle = theme.title;
-  g.fillText("圣诞快乐", 375, 610);
+  g.fillText(theme.big || "心意满满", 375, 610);
   g.restore();
 
-  /* 祝福语：金色楷体 + 阴影 + 花式分隔线 */
+  /* 祝福语 */
   var lines = wrap(g, text, "600 34px 'Kaiti SC','STKaiti','KaiTi',serif", 560);
   var LH = 54, blockH = lines.length * LH;
   var top = 740 - blockH/2 + 40;
@@ -598,12 +930,23 @@ function renderCard(tpl, text){
   g.font = "30px serif"; g.fillStyle = "rgba(255,215,130,.9)";
   g.fillText("❄ ─── ✦ ─── ❄", 375, top + blockH + 40);
 
-  /* 落款：年份自适应 */
-  g.font = "22px sans-serif"; g.fillStyle = "rgba(255,255,255,.72)";
-  g.fillText("来自一位朋友的圣诞贺卡 · " + YEAR, 375, 952);
+  /* ② 右下角回流二维码（个人化收卡链接） */
+  var qrOk = false;
+  if (receiveLink && typeof qrcode === "function"){
+    qrOk = drawQr(g, receiveLink, 604, 838, 116);
+    if (qrOk){
+      g.font = "600 17px sans-serif"; g.textAlign = "center";
+      g.fillStyle = "rgba(255,255,255,.85)";
+      g.fillText("扫码也做一张 🎁", 662, 986);
+    }
+  }
+
+  /* 落款 */
+  g.font = "22px sans-serif"; g.textAlign = "center";
+  g.fillStyle = "rgba(255,255,255,.72)";
+  g.fillText("来自一位朋友的手作贺卡 · " + YEAR, 375, 952);
   return c.toDataURL("image/png");
 }
-
 function wrap(g, text, font, max){
   g.font = font;
   var lines = [], cur = "";
@@ -615,18 +958,23 @@ function wrap(g, text, font, max){
   return lines;
 }
 
-/* ============ 生成 / 分享 / 弹层 ============ */
-var lastDataUrl = null;
+/* ============ 生成 / 分享 / 收卡链接 ============ */
+var lastDataUrl = null, lastLink = null;
+function generateFrom(tplId, text){
+  STATS.gen++; saveStats();
+  lastLink = makeReceiveLink(tplId, text);
+  lastDataUrl = renderCard(tplId, text, lastLink);
+  document.getElementById("out").src = lastDataUrl;
+  setHint();
+  document.getElementById("mask").classList.add("show");
+}
 function generate(){
   var text;
   var all = [].slice.call(document.querySelectorAll("#words .word"));
   if (customText && all[word] && all[word].textContent.indexOf("✏️") === 0) text = customText;
-  else text = all[word] ? all[word].textContent : GREETING_LIBRARY[0];
+  else text = all[word] ? all[word].textContent : (filteredGreetings()[0] || {t:"圣诞快乐"}).t;
   if (text.indexOf("✏️ ") === 0) text = text.slice(2);
-  lastDataUrl = renderCard(TPL, text);
-  document.getElementById("out").src = lastDataUrl;
-  setHint();
-  document.getElementById("mask").classList.add("show");
+  generateFrom(TPL, text);
 }
 function setHint(){
   var hint = document.getElementById("hint");
@@ -638,44 +986,127 @@ function setHint(){
   } catch(e){}
   shareBtn.style.display = canShare ? "" : "none";
   if (isWeChat()){
-    hint.innerHTML = "<b>长按图片</b>保存到相册，然后在微信里<b>直接把图发给朋友</b>——贺卡本身就是内容，比发链接好使得多。" +
-      "<small>微信里网页暂不支持一键转发卡片；「点一下直接发给微信好友」是正式小程序版的头号功能。</small>";
+    hint.innerHTML = "<b>微信里两步走：</b>① <b>长按图片</b> → 保存到相册；② 回到聊天点「+」→ 相册 → 发这张图。<br>" +
+      "或者点 <b>🔗 复制收卡链接</b>，把链接发出去——朋友点开能<b>直接拆开你这张卡</b>，还能一键做自己的。" +
+      "<small>图片转发永远好使；链接转发能让朋友也来做一张。</small>";
   } else if (canShare){
-    hint.innerHTML = "点上方 <b>📱 直接分享</b> 可调起系统分享（微信/QQ/短信都行）；或 <b>长按图片</b> 保存到相册再发。";
+    hint.innerHTML = "点上方 <b>📱 直接分享</b> 调起系统分享；或 <b>长按图片</b> 保存后发图。" +
+      "<br><b>🔗 复制收卡链接</b> 发出去，朋友点开能拆你的卡、也能做自己的。";
   } else {
-    hint.innerHTML = "<b>长按图片</b>保存到相册，再从相册把图发给朋友。";
+    hint.innerHTML = "<b>长按图片</b>保存到相册再发图；或点 <b>🔗 复制收卡链接</b> 把链接发给朋友——<br>朋友点开能直接拆开你这张贺卡 🎁";
   }
 }
 function isWeChat(){ return /MicroMessenger/i.test(navigator.userAgent); }
 function dataUrlToFile(dataUrl){
   var arr = atob(dataUrl.split(",")[1]), n = arr.length, u8 = new Uint8Array(n);
   for (var i=0;i<n;i++) u8[i] = arr.charCodeAt(i);
-  return new File([u8], "christmas-card.png", {type:"image/png"});
+  return new File([u8], "heart-card.png", {type:"image/png"});
 }
 function shareImg(){
   if (!lastDataUrl) return;
+  STATS.share++; saveStats();
   try {
     var f = dataUrlToFile(lastDataUrl);
     if (navigator.canShare && navigator.canShare({files:[f]})){
-      navigator.share({ files:[f], title:"圣诞贺卡", text:"给你做了一张圣诞贺卡 🎄" });
+      navigator.share({ files:[f], title:"心意贺卡", text:"给你做了一张贺卡 🎄" });
       return;
     }
   } catch(e){}
   saveTip();
 }
+/* ①③ 复制个人化收卡链接 */
+function copyLink(){
+  if (!lastLink) return;
+  STATS.copylink++; saveStats();
+  var done = function(){ alert("收卡链接已复制 ✅\n把它粘到微信/QQ 发出去，朋友点开就能拆你这张卡 🎁"); };
+  var ok = false;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(lastLink);
+      ok = true;
+    }
+  } catch(e){}
+  if (!ok){
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = lastLink;
+      ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+    } catch(e){}
+  }
+  if (ok) done();
+  else prompt("复制下面的收卡链接发给朋友：", lastLink);
+}
 function closeMask(){ document.getElementById("mask").classList.remove("show"); }
 function saveTip(){
   if (isWeChat()){
-    alert("微信里：长按图片 → 保存图片（iPhone 叫存入相册）\n然后回到聊天，点「+」→ 相册，把这张图发出去。\n收到的人点开就能看，不用点任何链接。");
+    alert("微信里：长按图片 → 保存图片（iPhone 叫存入相册）\n然后回到聊天，点「+」→ 相册，把这张图发出去。\n或者用「复制收卡链接」发链接，朋友点开能拆卡还能自己做。");
   } else {
-    alert("长按图片 → 保存图片 / 存入相册\n然后在微信或 QQ 里点「+」→ 相册，把这张图发出去即可。");
+    alert("长按图片 → 保存图片 / 存入相册\n然后在微信或 QQ 里点「+」→ 相册发出去即可。\n或者用「复制收卡链接」发链接，朋友点开能拆卡还能自己做。");
   }
 }
 
-/* ============ 初始化（必须放在最后：依赖上方全部函数与状态） ============ */
+/* ============ ① 收卡页（拆贺卡） ============ */
+var incoming = null;
+function showSeal(card){
+  incoming = card;
+  var t = themeOf(card.t);
+  document.getElementById("rvBox").innerHTML =
+    '<div class="rv-gift">🎁</div>' +
+    '<div class="rv-title">有人送了你一张贺卡</div>' +
+    '<div class="rv-sub">来自一位朋友的冬日心意<br>点下面的按钮拆开看看</div>' +
+    '<button class="rv-open" onclick="openReceived()">点 我 拆 开</button>';
+  document.getElementById("receive").classList.add("show");
+}
+function openReceived(){
+  var card = incoming;
+  if (!card) return;
+  resumeMusicOnce();
+  var t = themeOf(card.t);
+  document.getElementById("rvBox").innerHTML =
+    '<div class="rv-card">' +
+      '<p class="ver">' + t.ver + ' · ' + (t.pool === "xmas" ? "冬日限定" : "今日限定") + '</p>' +
+      '<h2>' + t.prefix + t.name + '</h2>' +
+      '<p class="greet">' + card.w + '</p>' +
+      '<img src="' + t.src + '" alt="">' +
+    '</div>' +
+    '<div class="rv-btns">' +
+      '<button class="rv-save" onclick="saveReceived()">💾 保存 / 分享这张</button>' +
+      '<button class="rv-mine" onclick="mineOwn()">🎁 我也要做一张</button>' +
+    '</div>';
+}
+function saveReceived(){
+  if (!incoming) return;
+  closeReceive();
+  generateFrom(incoming.t, incoming.w);
+}
+function mineOwn(){
+  closeReceive();
+  try { history.replaceState(null, "", location.pathname + location.search); } catch(e){}
+}
+function closeReceive(){
+  document.getElementById("receive").classList.remove("show");
+}
+
+/* ============ 初始化（必须放最后：依赖上方全部函数与状态） ============ */
+renderCats();
 renderWords();
 renderTpls();
 renderPity();
+document.getElementById("verInfo").onclick = verInfoTap;
+document.getElementById("wishBtn").textContent = MODE === "random" ? "🎲 换一张" : "🎴 更换卡片";
+if (MODE === "random"){
+  document.getElementById("pityTip").style.display = "none";
+  document.getElementById("modeTag").textContent = "A/B 模式：随机换卡（?mode=random）";
+}
+/* ① 收卡链接检测：带 #g= 打开 → 拆卡页 */
+(function(){
+  var card = parseIncomingCard();
+  if (card){ STATS.receive++; saveStats(); showSeal(card); }
+})();
 </script>
 </body>
 </html>
