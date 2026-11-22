@@ -241,7 +241,7 @@
 </div>
 
 <footer>
-  v0.8 可点原型 · 2026-11-22（更换卡片点击即生效 · 自写祝福上移至生成按钮上方）<br>
+  v0.8.1 可点原型 · 2026-11-22（修复：初始化顺序致「更换卡片」失效）<br>
   全程零上传 · 零账号 ｜ 音乐为现场合成，保存的图片不含音频
 </footer>
 
@@ -383,9 +383,6 @@ function useCustom(){
   all[word].classList.add("sel");
   renderHero();
 }
-renderWords();
-renderTpls();
-renderPity();
 
 /* ============ 模板（随机展示 + 素材库折叠自选） ============ */
 function renderTpls(){
@@ -445,6 +442,11 @@ var lastPulls = [];
 function wish(){
   var r = rollRarity();
   var t = drawFrom(TPL_LIBRARY, r);
+  /* 避免连续两次抽到同一模板：同星级内换一个 */
+  if (t.id === TPL){
+    var alt = TPL_LIBRARY.filter(function(x){ return x.r === r && x.id !== TPL; });
+    if (alt.length) t = alt[randPick(alt.length)];
+  }
   var w = drawFrom(GREETING_LIBRARY, r);
   var isNew = !GK.got["t"+t.id];
   GK.got["t"+t.id] = 1;
@@ -669,6 +671,11 @@ function saveTip(){
     alert("长按图片 → 保存图片 / 存入相册\n然后在微信或 QQ 里点「+」→ 相册，把这张图发出去即可。");
   }
 }
+
+/* ============ 初始化（必须放在最后：依赖上方全部函数与状态） ============ */
+renderWords();
+renderTpls();
+renderPity();
 </script>
 </body>
 </html>
