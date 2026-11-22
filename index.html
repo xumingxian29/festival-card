@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>圣诞贺卡 · 30 秒一张</title>
 <!--
-  可点原型 v0.6 · 2026-11-22（原神式祈愿抽卡）
-    - 模板池与祝福池分 3★/4★/5★：「✨ 祈愿 ×1 / ×10」抽卡，5★ 金光 / 4★ 紫光 / 3★ 蓝光
-    - 保底：每 10 抽必出 4★+，每 30 抽必出 5★；NEW 标记首抽模板；进度存 localStorage
-    - 抽中「留用」→ 应用到首页；十连点任一格留用；素材库仍可直选（走「📚 素材库 ▾」）
-  v0.5「收到了一个祝福」界面 / v0.3 素材库化 / v0.2 真图模板·一键分享 / v0.1 音乐·长按指引
+  可点原型 v0.7 · 2026-11-22
+    - 「🎵 圣诞音乐」默认开启（铃儿响叮当；被浏览器拦截时首次点击自动续播）
+    - 「🎴 更换卡片」= 单次抽卡换模板+祝福（5★金/4★紫/3★蓝，10 抽保底 4★+ / 30 抽保底 5★）；十连已移除
+    - 素材库模板点击仅预览，不改动当前卡片；换卡只走「更换卡片」
+  v0.6 抽卡 / v0.5 收到祝福界面 / v0.3 素材库化 / v0.2 真图模板·一键分享 / v0.1 音乐·长按指引
 -->
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -111,13 +111,6 @@
     box-shadow:0 10px 28px rgba(43,33,24,.20); background:#e8e2d8; cursor:pointer;
   }
   .hero-img img { width:100%; display:block; }
-  .hero-img.wiggle img { animation:wiggle .65s ease-in-out infinite; }
-  @keyframes wiggle {
-    0%,100% { transform:rotate(-2deg); }
-    25%     { transform:rotate(2.5deg) scale(1.02); }
-    50%     { transform:rotate(-2deg) translateY(-8px); }
-    75%     { transform:rotate(2.5deg) scale(1.02); }
-  }
   .tap-hint { font-size:12px; color:#b5aa9a; margin-top:14px; }
   .hero-btns { display:flex; gap:10px; margin-top:16px; }
   .h-main {
@@ -135,14 +128,7 @@
     border-radius:99px; background:#fff; color:#b3282d;
     font-size:14px; font-weight:600; cursor:pointer;
   }
-  /* 祈愿（抽卡） */
-  .h-ten {
-    margin-top:10px; width:100%; padding:14px; border:none; border-radius:99px;
-    background:linear-gradient(135deg,#f5c342,#d98e2b); color:#fff;
-    font-size:15px; font-weight:800; cursor:pointer; letter-spacing:2px;
-    box-shadow:0 4px 14px rgba(217,142,43,.45);
-  }
-  .h-ten:active { transform:scale(.97); }
+  /* 抽卡结果层 */
   .pity { font-size:11px; color:#b5aa9a; margin-top:8px; }
   .gacha {
     position:fixed; inset:0; background:rgba(14,10,6,.92); z-index:20;
@@ -196,6 +182,12 @@
   .reroll:active { transform:scale(.96); }
   #builder h2 { margin-top:22px; }
   #builder .gen { margin-top:16px; }
+  .tpl-preview { margin-top:12px; text-align:center; }
+  .tpl-preview img {
+    max-width:220px; border-radius:14px; display:block; margin:0 auto;
+    box-shadow:0 6px 18px rgba(43,33,24,.18);
+  }
+  .tpl-preview .tpname { font-size:12px; color:#8a7f72; margin-top:8px; line-height:1.7; }
 </style>
 </head>
 <body>
@@ -206,15 +198,14 @@
   <p class="ver" id="verTag"></p>
   <h1 id="cardTitle"></h1>
   <p class="greet" id="greetLine"></p>
-  <div class="hero-img" id="heroImg" onclick="toggleLaugh()">
-    <img id="heroCard" alt="随机抽中的贺卡插画">
+  <div class="hero-img" id="heroImg">
+    <img id="heroCard" alt="当前贺卡插画">
   </div>
-  <p class="tap-hint">点一下，让贺卡陪你开心过节 🔔</p>
+  <p class="tap-hint">圣诞音乐已默认开启，点按钮可关 🔔</p>
   <div class="hero-btns">
-    <button class="h-main" id="laughBtn" onclick="toggleLaugh()">▶ 循环大笑</button>
-    <button class="h-sub" onclick="wish(1)">✨ 祈愿 ×1</button>
+    <button class="h-main" id="musicBtn" onclick="toggleMusic()">🎵 圣诞音乐 · 开</button>
+    <button class="h-sub" onclick="wish(1)">🎴 更换卡片</button>
   </div>
-  <button class="h-ten" onclick="wish(10)">✨ 祈愿 ×10 · 十连祈愿</button>
   <p class="pity" id="pityTip"></p>
   <button class="h-mini" onclick="generate()">🖼️ 做成贺卡，保存 / 分享</button>
   <div class="lib-row">
@@ -223,8 +214,9 @@
 </div>
 
 <section id="builder" style="display:none">
-  <h2>选个模板 <em id="tplCount">全部在祈愿卡池里（5★ 金光 / 4★ 紫光 / 3★ 蓝光），点一下就换</em></h2>
+  <h2>选个模板 <em>点击只做预览，不会改动当前卡片；换卡请用「更换卡片」</em></h2>
   <div class="tpls" id="tpls"></div>
+  <div class="tpl-preview" id="tplPreview"></div>
   <h2>选句祝福 <em>或自己写一句</em></h2>
   <div class="words" id="words"></div>
   <div class="custom">
@@ -252,7 +244,7 @@
 </div>
 
 <footer>
-  v0.6 可点原型 · 2026-11-22（原神式祈愿抽卡：模板池 + 祝福池 · 5★金光 · 十连保底）<br>
+  v0.7 可点原型 · 2026-11-22（圣诞音乐默认播放 · 更换卡片抽卡 · 素材库仅预览）<br>
   全程零上传 · 零账号 ｜ 音乐为现场合成，保存的图片不含音频
 </footer>
 
@@ -306,24 +298,30 @@ function playMusic(key){
   s.seq.forEach(function(n){ tone(NOTES[n[0]], t, n[1]*beat*0.92); t += n[1]*beat; });
   musicTimer = setTimeout(function(){ playMusic(key); }, (t - ac.currentTime + 0.6) * 1000);
 }
-/* 「循环大笑」：摇摆动画 + 铃儿响叮当循环（默认曲目），再点一次停 */
-var songKey = "bell";     // 默认曲目：铃儿响叮当
-var laughing = false;
-function toggleLaugh(){
-  laughing = !laughing;
-  var img = document.getElementById("heroImg");
-  var btn = document.getElementById("laughBtn");
-  if (laughing){
-    img.classList.add("wiggle");
-    btn.textContent = "⏸ 停一停";
-    stopMusic();
-    playMusic(songKey);
-  } else {
-    img.classList.remove("wiggle");
-    btn.textContent = "▶ 循环大笑";
-    stopMusic();
-  }
+/* 圣诞音乐：默认《铃儿响叮当》且默认开启。
+   浏览器禁止无手势出声——加载时先尝试播放，
+   被拦则等首次点击/触摸自动续上 */
+var songKey = "bell";
+var musicOn = true;
+var musicBtn = document.getElementById("musicBtn");
+function startMusicNow(){
+  stopMusic();
+  try { playMusic(songKey); } catch(e){}
 }
+function toggleMusic(){
+  musicOn = !musicOn;
+  if (musicOn){ startMusicNow(); if (musicBtn) musicBtn.textContent = "🎵 圣诞音乐 · 开"; }
+  else { stopMusic(); if (musicBtn) musicBtn.textContent = "🎵 圣诞音乐 · 关"; }
+}
+startMusicNow();   // 尝试默认播放（无手势时会被浏览器拦下）
+var _musicResumed = false;
+function resumeMusicOnce(){
+  if (_musicResumed || !musicOn) return;
+  _musicResumed = true;
+  startMusicNow();
+}
+document.addEventListener("touchstart", resumeMusicOnce, {passive:true});
+document.addEventListener("click", resumeMusicOnce);
 
 /* ============ 祝福语：场景句（按日期）+ 通用预设 ============ */
 var YEAR = new Date().getFullYear();
@@ -466,35 +464,19 @@ function starHTML(r){
 }
 function showGacha(pulls){
   lastPulls = pulls;
-  var box = document.getElementById("gachaBox");
-  if (pulls.length === 1){
-    var p = pulls[0];
-    box.innerHTML =
-      '<div class="g-pop g-wrap r'+p.r+'">' +
-        '<div class="g-stars">'+starHTML(p.r)+'</div>' +
-        '<img class="g-img" src="'+p.tpl.src+'">' +
-        '<div class="g-name">'+p.tpl.name+(p.isNew?'<span class="g-new">NEW</span>':'')+'</div>' +
-        '<div class="g-word">'+p.word.t+'</div>' +
-      '</div>' +
-      '<div class="g-btns">' +
-        '<button class="g-use" onclick="usePull(0)">✓ 留用这套</button>' +
-        '<button class="g-again" onclick="wish(1)">再来一发</button>' +
-        '<button class="g-skip" onclick="closeGacha()">跳过</button>' +
-      '</div>';
-  } else {
-    var cells = pulls.map(function(p,i){
-      return '<div class="g-pop g-cell r'+p.r+'" onclick="usePull('+i+')">' +
-        (p.isNew ? '<span class="g-new">NEW</span>' : '') +
-        '<img src="'+p.tpl.src+'">' +
-        '<div class="g-cellname">'+p.tpl.name+'</div>' +
-        '<div class="g-cellstars">'+starHTML(p.r)+'</div>' +
-      '</div>';
-    }).join("");
-    box.innerHTML =
-      '<div class="g-pop"><div class="g-title2">✦ 祈愿 ×10 · 点一张留用 ✦</div>' +
-      '<div class="g-grid">'+cells+'</div></div>' +
-      '<div class="g-btns"><button class="g-skip" onclick="closeGacha()">关闭</button></div>';
-  }
+  var p = pulls[0];
+  document.getElementById("gachaBox").innerHTML =
+    '<div class="g-pop g-wrap r'+p.r+'">' +
+      '<div class="g-stars">'+starHTML(p.r)+'</div>' +
+      '<img class="g-img" src="'+p.tpl.src+'">' +
+      '<div class="g-name">'+p.tpl.name+(p.isNew?'<span class="g-new">NEW</span>':'')+'</div>' +
+      '<div class="g-word">'+p.word.t+'</div>' +
+    '</div>' +
+    '<div class="g-btns">' +
+      '<button class="g-use" onclick="usePull(0)">✓ 用这套</button>' +
+      '<button class="g-again" onclick="wish(1)">🎴 再换一张</button>' +
+      '<button class="g-skip" onclick="closeGacha()">跳过</button>' +
+    '</div>';
   var g = document.getElementById("gacha");
   g.classList.remove("reveal");
   g.classList.add("show");
@@ -526,9 +508,15 @@ function toggleLib(id, btn){
   el.style.display = opening ? "" : "none";
   btn.textContent = opening ? "📚 收起素材库 ▴" : "📚 素材库 ▾";
 }
+/* 素材库模板点击 = 仅预览，不改当前卡片；换卡只走「更换卡片」 */
+function previewTpl(el){
+  var t = themeOf(el.dataset.t);
+  document.getElementById("tplPreview").innerHTML =
+    '<img src="' + t.src + '" alt="">' +
+    '<div class="tpname">「' + t.name + '」· 素材库预览（不影响当前卡片）<br>想换卡请回首页点「🎴 更换卡片」</div>';
+}
 function pickTpl(el){
-  TPL = el.dataset.t;
-  renderHero();
+  previewTpl(el);
 }
 
 /* ============ canvas 合成：750×1000，真图模板 ============ */
