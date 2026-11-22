@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>圣诞贺卡 · 30 秒一张</title>
 <!--
-  可点原型 v0.3 · 2026-11-22（素材库化 + 默认音乐）
-    - 模板与祝福语改为从 library.js「素材库」统一抽取渲染，页面不再硬编码；
-      现有 6 模板 + 14 条祝福语作为基础素材入库，后续扩充只改 library.js
-    - 音乐默认《铃儿响叮当》：首次点击/触摸页面即自动响起，可随时一键关闭
+  可点原型 v0.4 · 2026-11-22（随机模式）
+    - 打开即随机抽一款模板 + 随机一句祝福，直接生成；提供「🎲 换一张 / 换一句」重抽
+    - 完整素材库收进模板、祝福两个模块左下角的「📚 素材库 ▾」折叠入口，展开可自选/自写
+  v0.3：模板与祝福从 library.js 素材库统一抽取渲染；音乐默认《铃儿响叮当》首次手势自动响起
   v0.2（按 7 人实测反馈优化）：真图模板 ×6 / 自写祝福 / Web Share 一键分享
   v0.1 保留：WebAudio 音乐、长按存图指引、canvas 750×1000 实时合成
 -->
@@ -107,17 +107,37 @@
   .btn-save { background:#b3282d; color:#fff; }
   .btn-share { background:#2e7d32; color:#fff; }
   footer { text-align:center; font-size:11px; color:#b5aa9a; padding:26px 20px 0; line-height:1.7; }
+  /* 随机模式：当前模板预览 / 当前祝福展示 */
+  .tpl-now { position:relative; border-radius:16px; overflow:hidden; box-shadow:0 6px 18px rgba(43,33,24,.18); background:#e8e2d8; }
+  .tpl-now img { width:100%; height:215px; object-fit:cover; display:block; }
+  .tpl-now .tname {
+    position:absolute; left:0; right:0; bottom:0; padding:30px 16px 12px;
+    background:linear-gradient(to top,rgba(10,8,6,.68),transparent);
+    color:#fff; font-size:14px; font-weight:600;
+  }
+  .word-now {
+    background:#fff; border:1.5px solid #b3282d; border-radius:14px;
+    padding:16px 18px; font-size:15px; font-weight:600; color:#2b2118; text-align:center;
+  }
+  .lib-row { display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
+  .lib-toggle { background:none; border:none; color:#b5aa9a; font-size:11px; cursor:pointer; padding:6px 0; }
+  .lib-toggle:hover { color:#8a7f72; }
+  .reroll {
+    background:#efe9df; border:none; border-radius:99px; padding:7px 14px;
+    font-size:12px; color:#5a4f42; cursor:pointer;
+  }
+  .reroll:active { transform:scale(.96); }
 </style>
 </head>
 <body>
 
 <header>
   <h1>圣诞贺卡 🎄</h1>
-  <p>模板与祝福都来自素材库，30 秒生成一张存进相册</p>
+  <p>模板与祝福随机抽取自素材库，30 秒生成一张存进相册</p>
 </header>
 <div class="steps">
-  <span class="on" id="s1">1 选模板</span>
-  <span id="s2">2 选祝福</span>
+  <span class="on" id="s1">1 模板 · 随机</span>
+  <span class="on" id="s2">2 祝福 · 随机</span>
   <span id="s3">3 生成</span>
 </div>
 
@@ -132,17 +152,29 @@
 </section>
 
 <section>
-  <h2>选个模板 <em id="tplCount">全部来自素材库，点一下就换</em></h2>
-  <div class="tpls" id="tpls"></div>
+  <h2>贺卡模板 <em>随机为你挑了一款，不满意可换</em></h2>
+  <div class="tpl-now" id="tplNow"></div>
+  <div class="lib-row">
+    <button class="lib-toggle" onclick="toggleLib('tpls', this)">📚 素材库 ▾</button>
+    <button class="reroll" onclick="rerollTpl()">🎲 换一张</button>
+  </div>
+  <div class="tpls" id="tpls" style="display:none"></div>
 </section>
 
 <section>
-  <h2>选句祝福 <em>都是现成的，一个字都不用打</em></h2>
-  <div class="words" id="words"></div>
-  <div class="custom">
-    <span class="hintx">都不喜欢？也可以自己写一句：</span>
-    <input id="myword" maxlength="40" placeholder="写一句你的祝福（可选）">
-    <button class="use" onclick="useCustom()">用这句</button>
+  <h2>贺卡祝福 <em>随机为你挑了一句，不满意可换</em></h2>
+  <div class="word-now" id="wordNow"></div>
+  <div class="lib-row">
+    <button class="lib-toggle" onclick="toggleLib('wordsWrap', this)">📚 素材库 ▾</button>
+    <button class="reroll" onclick="rerollWord()">🎲 换一句</button>
+  </div>
+  <div id="wordsWrap" style="display:none">
+    <div class="words" id="words"></div>
+    <div class="custom">
+      <span class="hintx">都不喜欢？也可以自己写一句：</span>
+      <input id="myword" maxlength="40" placeholder="写一句你的祝福（可选）">
+      <button class="use" onclick="useCustom()">用这句</button>
+    </div>
   </div>
 </section>
 
@@ -161,14 +193,15 @@
 </div>
 
 <footer>
-  v0.3 可点原型 · 2026-11-22（模板与祝福从素材库 library.js 抽取 · 音乐默认铃儿响叮当）<br>
+  v0.4 可点原型 · 2026-11-22（随机模板 + 随机祝福，素材库收进各模块左下角 · 音乐默认铃儿响叮当）<br>
   全程零上传 · 零账号 ｜ 音乐为现场合成，保存的图片不含音频
 </footer>
 
 <script src="library.js"></script>
 <script>
-/* ============ 状态 ============ */
-var TPL = TPL_LIBRARY[0].id;
+/* ============ 状态（随机抽取） ============ */
+function randPick(n){ return Math.floor(Math.random() * n); }
+var TPL = TPL_LIBRARY[randPick(TPL_LIBRARY.length)].id;
 var word = 0;
 var customText = null;   // 用户自写祝福（null = 未用）
 
@@ -264,8 +297,16 @@ function renderWords(){
   }
   GREETING_LIBRARY.forEach(function(w){ addWord(box, w, false); });
   if (customText) addWord(box, "✏️ " + customText, false);
-  word = scene ? 0 : 1;
-  [].forEach.call(box.querySelectorAll(".word"), function(c,i){ c.classList.toggle("sel", i===word); });
+  /* 随机抽一句（含场景句与自定义） */
+  var chips = [].slice.call(box.querySelectorAll(".word"));
+  word = randPick(chips.length);
+  chips[word].classList.add("sel");
+  renderWordNow();
+}
+function renderWordNow(){
+  var chips = [].slice.call(document.querySelectorAll("#words .word"));
+  var el = document.getElementById("wordNow");
+  if (el && chips[word]) el.textContent = chips[word].textContent;
 }
 function addWord(box, text, isScene){
   var b = document.createElement("div");
@@ -291,8 +332,9 @@ function useCustom(){
   step(2);
 }
 renderWords();
+renderTpls();
 
-/* ============ 模板选择（卡片由素材库渲染） ============ */
+/* ============ 模板（随机展示 + 素材库折叠自选） ============ */
 function renderTpls(){
   var box = document.getElementById("tpls");
   box.innerHTML = "";
@@ -304,15 +346,40 @@ function renderTpls(){
     d.onclick = function(){ pickTpl(d); };
     box.appendChild(d);
   });
-  var em = document.getElementById("tplCount");
-  if (em) em.textContent = TPL_LIBRARY.length + " 款手绘插画（素材库 v1），点一下就换";
+  renderTplNow();
 }
-renderTpls();
-
+function renderTplNow(){
+  var t = themeOf(TPL);
+  document.getElementById("tplNow").innerHTML =
+    '<img src="' + t.src + '" alt=""><div class="tname">🎲 随机抽中「' + t.name + '」</div>';
+  document.querySelectorAll(".tpl").forEach(function(el){
+    el.classList.toggle("sel", el.dataset.t === TPL);
+  });
+}
+function rerollTpl(){
+  var pool = TPL_LIBRARY.filter(function(t){ return t.id !== TPL; });
+  TPL = pool[randPick(pool.length)].id;
+  renderTplNow();
+}
+function rerollWord(){
+  var chips = [].slice.call(document.querySelectorAll("#words .word"));
+  if (!chips.length) return;
+  var next;
+  do { next = randPick(chips.length); } while (chips.length > 1 && next === word);
+  chips[word].classList.remove("sel");
+  word = next;
+  chips[word].classList.add("sel");
+  renderWordNow();
+}
+function toggleLib(id, btn){
+  var el = document.getElementById(id);
+  var opening = el.style.display === "none";
+  el.style.display = opening ? "" : "none";
+  btn.textContent = opening ? "📚 收起素材库 ▴" : "📚 素材库 ▾";
+}
 function pickTpl(el){
   TPL = el.dataset.t;
-  document.querySelectorAll(".tpl").forEach(function(t){ t.classList.remove("sel"); });
-  el.classList.add("sel");
+  renderTplNow();
   step(1);
 }
 function step(n){
