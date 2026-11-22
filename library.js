@@ -8,17 +8,17 @@
    ============================================================ */
 
 var TPL_LIBRARY = [
-  { id:"snow",  name:"雪花夜",   src:"tpl/snow.jpg",
+  { id:"snow",  name:"雪花夜",   ver:"雪花版", src:"tpl/snow.jpg",
     tag:"· 雪花夜 ·",  scrim:["rgba(8,16,40,.42)","rgba(8,16,40,.62)"], title:"#ffffff", sub:"#ffe3a3" },
-  { id:"pink",  name:"粉紫夜",   src:"tpl/pink.jpg",
+  { id:"pink",  name:"粉紫夜",   ver:"粉霞版", src:"tpl/pink.jpg",
     tag:"· 粉紫夜 ·",  scrim:["rgba(60,20,80,.34)","rgba(60,20,80,.58)"], title:"#ffffff", sub:"#ffe3a3" },
-  { id:"deer",  name:"小驯鹿",   src:"tpl/deer.jpg",
+  { id:"deer",  name:"小驯鹿",   ver:"麋鹿版", src:"tpl/deer.jpg",
     tag:"· 小驯鹿 ·",  scrim:["rgba(40,10,10,.30)","rgba(40,10,10,.60)"], title:"#ffffff", sub:"#ffe9b8" },
-  { id:"tree",  name:"圣诞树下", src:"tpl/tree.jpg",
+  { id:"tree",  name:"圣诞树下", ver:"圣树版", src:"tpl/tree.jpg",
     tag:"· 圣诞树下 ·", scrim:["rgba(6,26,14,.30)","rgba(6,26,14,.62)"], title:"#ffffff", sub:"#ffe3a3" },
-  { id:"apple", name:"平安果",   src:"tpl/apple.jpg",
+  { id:"apple", name:"平安果",   ver:"平安版", src:"tpl/apple.jpg",
     tag:"· 平安果 ·",  scrim:["rgba(50,20,5,.30)","rgba(50,20,5,.62)"], title:"#fff8ec", sub:"#ffd98a" },
-  { id:"town",  name:"小镇夜",   src:"tpl/town.jpg",
+  { id:"town",  name:"小镇夜",   ver:"小镇版", src:"tpl/town.jpg",
     tag:"· 小镇夜 ·",  scrim:["rgba(8,14,34,.34)","rgba(8,14,34,.64)"], title:"#ffffff", sub:"#ffe3a3" }
 ];
 

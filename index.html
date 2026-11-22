@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>圣诞贺卡 · 30 秒一张</title>
 <!--
-  可点原型 v0.4 · 2026-11-22（随机模式）
-    - 打开即随机抽一款模板 + 随机一句祝福，直接生成；提供「🎲 换一张 / 换一句」重抽
-    - 完整素材库收进模板、祝福两个模块左下角的「📚 素材库 ▾」折叠入口，展开可自选/自写
-  v0.3：模板与祝福从 library.js 素材库统一抽取渲染；音乐默认《铃儿响叮当》首次手势自动响起
-  v0.2（按 7 人实测反馈优化）：真图模板 ×6 / 自写祝福 / Web Share 一键分享
-  v0.1 保留：WebAudio 音乐、长按存图指引、canvas 750×1000 实时合成
+  可点原型 v0.5 · 2026-11-22（「收到了一个祝福」随机抽取界面）
+    - 打开即随机收到一款模板 + 一句祝福：版式标签 + 大标题 + 祝福语 + 大图舞台
+    - 「▶ 循环大笑」= 贺卡摇摆动画 + 《铃儿响叮当》循环（再点即停）；「🎲 再抽一次」重抽
+    - 「🖼️ 做成贺卡」生成 canvas 合成图 → 保存/分享
+    - 完整素材库收进左下角「📚 素材库 ▾」折叠区
+  v0.4 随机模式 / v0.3 素材库化 / v0.2 真图模板·自写祝福·一键分享 / v0.1 音乐·长按指引
 -->
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -18,7 +18,7 @@
     font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
     background:#f4f1ec; color:#2b2118;
     max-width:480px; margin:0 auto; min-height:100vh;
-    padding-bottom:96px;
+    padding-bottom:40px;
   }
   header { padding:20px 20px 8px; }
   header h1 { font-size:22px; font-weight:800; }
@@ -77,13 +77,7 @@
     background:#5a4f42; color:#fff; cursor:pointer; flex-shrink:0;
   }
   .custom .hintx { font-size:11px; color:#b5aa9a; width:100%; }
-  /* 生成按钮 */
-  .gen-bar {
-    position:fixed; bottom:0; left:50%; transform:translateX(-50%);
-    width:100%; max-width:480px; padding:12px 20px 18px;
-    background:linear-gradient(to top,#f4f1ec 70%,rgba(244,241,236,0));
-    z-index:5;
-  }
+  /* 生成按钮（素材库折叠区内） */
   .gen {
     width:100%; padding:15px; border:none; border-radius:14px;
     background:#b3282d; color:#fff; font-size:16px; font-weight:700;
@@ -107,19 +101,42 @@
   .btn-save { background:#b3282d; color:#fff; }
   .btn-share { background:#2e7d32; color:#fff; }
   footer { text-align:center; font-size:11px; color:#b5aa9a; padding:26px 20px 0; line-height:1.7; }
-  /* 随机模式：当前模板预览 / 当前祝福展示 */
-  .tpl-now { position:relative; border-radius:16px; overflow:hidden; box-shadow:0 6px 18px rgba(43,33,24,.18); background:#e8e2d8; }
-  .tpl-now img { width:100%; height:215px; object-fit:cover; display:block; }
-  .tpl-now .tname {
-    position:absolute; left:0; right:0; bottom:0; padding:30px 16px 12px;
-    background:linear-gradient(to top,rgba(10,8,6,.68),transparent);
-    color:#fff; font-size:14px; font-weight:600;
+  /* 「收到了一个祝福」hero 区 */
+  .received { text-align:center; font-size:12px; color:#8a7f72; padding-top:22px; letter-spacing:3px; }
+  .hero { padding:0 20px; text-align:center; }
+  .ver { font-size:13px; color:#6f93c4; letter-spacing:6px; margin-top:14px; }
+  .hero h1 { font-size:30px; font-weight:800; color:#2b2118; margin-top:8px; letter-spacing:2px; }
+  .greet { font-size:14px; color:#5a4f42; margin-top:12px; line-height:1.7; padding:0 12px; }
+  .hero-img {
+    margin:20px auto 0; max-width:320px; border-radius:18px; overflow:hidden;
+    box-shadow:0 10px 28px rgba(43,33,24,.20); background:#e8e2d8; cursor:pointer;
   }
-  .word-now {
-    background:#fff; border:1.5px solid #b3282d; border-radius:14px;
-    padding:16px 18px; font-size:15px; font-weight:600; color:#2b2118; text-align:center;
+  .hero-img img { width:100%; display:block; }
+  .hero-img.wiggle img { animation:wiggle .65s ease-in-out infinite; }
+  @keyframes wiggle {
+    0%,100% { transform:rotate(-2deg); }
+    25%     { transform:rotate(2.5deg) scale(1.02); }
+    50%     { transform:rotate(-2deg) translateY(-8px); }
+    75%     { transform:rotate(2.5deg) scale(1.02); }
   }
-  .lib-row { display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
+  .tap-hint { font-size:12px; color:#b5aa9a; margin-top:14px; }
+  .hero-btns { display:flex; gap:10px; margin-top:16px; }
+  .h-main {
+    flex:1.6; padding:14px; border:none; border-radius:99px;
+    background:#6f93c4; color:#fff; font-size:16px; font-weight:700;
+    cursor:pointer; box-shadow:0 4px 14px rgba(111,147,196,.4);
+  }
+  .h-main:active { transform:scale(.97); }
+  .h-sub {
+    flex:1; padding:14px; border:1.5px solid #d5cfc3; border-radius:99px;
+    background:#fff; color:#5a4f42; font-size:14px; cursor:pointer;
+  }
+  .h-mini {
+    margin-top:10px; width:100%; padding:12px; border:1.5px solid #b3282d;
+    border-radius:99px; background:#fff; color:#b3282d;
+    font-size:14px; font-weight:600; cursor:pointer;
+  }
+  .lib-row { display:flex; align-items:center; justify-content:flex-start; margin-top:18px; }
   .lib-toggle { background:none; border:none; color:#b5aa9a; font-size:11px; cursor:pointer; padding:6px 0; }
   .lib-toggle:hover { color:#8a7f72; }
   .reroll {
@@ -127,58 +144,44 @@
     font-size:12px; color:#5a4f42; cursor:pointer;
   }
   .reroll:active { transform:scale(.96); }
+  #builder h2 { margin-top:22px; }
+  #builder .gen { margin-top:16px; }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>圣诞贺卡 🎄</h1>
-  <p>模板与祝福随机抽取自素材库，30 秒生成一张存进相册</p>
-</header>
-<div class="steps">
-  <span class="on" id="s1">1 模板 · 随机</span>
-  <span class="on" id="s2">2 祝福 · 随机</span>
-  <span id="s3">3 生成</span>
+<p class="received">收到了一个祝福 · 冬日限定</p>
+
+<div class="hero">
+  <p class="ver" id="verTag"></p>
+  <h1 id="cardTitle"></h1>
+  <p class="greet" id="greetLine"></p>
+  <div class="hero-img" id="heroImg" onclick="toggleLaugh()">
+    <img id="heroCard" alt="随机抽中的贺卡插画">
+  </div>
+  <p class="tap-hint">点一下，让贺卡陪你开心过节 🔔</p>
+  <div class="hero-btns">
+    <button class="h-main" id="laughBtn" onclick="toggleLaugh()">▶ 循环大笑</button>
+    <button class="h-sub" onclick="rerollAll()">🎲 再抽一次</button>
+  </div>
+  <button class="h-mini" onclick="generate()">🖼️ 做成贺卡，保存 / 分享</button>
+  <div class="lib-row">
+    <button class="lib-toggle" onclick="toggleLib('builder', this)">📚 素材库 ▾</button>
+  </div>
 </div>
 
-<section>
-  <h2>来点音乐 <em>默认《铃儿响叮当》，首次点页面自动响起，可随时关</em></h2>
-  <div class="music" id="music">
-    <span class="label">♪</span>
-    <div class="song sel" data-s="bell" onclick="pickSong(this)">🔔 铃儿响叮当</div>
-    <div class="song" data-s="silent" onclick="pickSong(this)">🕯️ 平安夜</div>
-    <div class="song" data-s="off" onclick="pickSong(this)">🔇 先不用</div>
+<section id="builder" style="display:none">
+  <h2>选个模板 <em id="tplCount">全部来自素材库，点一下就换</em></h2>
+  <div class="tpls" id="tpls"></div>
+  <h2>选句祝福 <em>或自己写一句</em></h2>
+  <div class="words" id="words"></div>
+  <div class="custom">
+    <span class="hintx">都不喜欢？也可以自己写一句：</span>
+    <input id="myword" maxlength="40" placeholder="写一句你的祝福（可选）">
+    <button class="use" onclick="useCustom()">用这句</button>
   </div>
+  <button class="gen" onclick="generate()">用这套做贺卡 →</button>
 </section>
-
-<section>
-  <h2>贺卡模板 <em>随机为你挑了一款，不满意可换</em></h2>
-  <div class="tpl-now" id="tplNow"></div>
-  <div class="lib-row">
-    <button class="lib-toggle" onclick="toggleLib('tpls', this)">📚 素材库 ▾</button>
-    <button class="reroll" onclick="rerollTpl()">🎲 换一张</button>
-  </div>
-  <div class="tpls" id="tpls" style="display:none"></div>
-</section>
-
-<section>
-  <h2>贺卡祝福 <em>随机为你挑了一句，不满意可换</em></h2>
-  <div class="word-now" id="wordNow"></div>
-  <div class="lib-row">
-    <button class="lib-toggle" onclick="toggleLib('wordsWrap', this)">📚 素材库 ▾</button>
-    <button class="reroll" onclick="rerollWord()">🎲 换一句</button>
-  </div>
-  <div id="wordsWrap" style="display:none">
-    <div class="words" id="words"></div>
-    <div class="custom">
-      <span class="hintx">都不喜欢？也可以自己写一句：</span>
-      <input id="myword" maxlength="40" placeholder="写一句你的祝福（可选）">
-      <button class="use" onclick="useCustom()">用这句</button>
-    </div>
-  </div>
-</section>
-
-<div class="gen-bar"><button class="gen" onclick="generate()">生成我的贺卡 →</button></div>
 
 <div class="mask" id="mask" onclick="if(event.target===this) closeMask()">
   <div class="result">
@@ -193,7 +196,7 @@
 </div>
 
 <footer>
-  v0.4 可点原型 · 2026-11-22（随机模板 + 随机祝福，素材库收进各模块左下角 · 音乐默认铃儿响叮当）<br>
+  v0.5 可点原型 · 2026-11-22（「收到了一个祝福」随机抽取界面 · 循环大笑 · 素材库左下角折叠）<br>
   全程零上传 · 零账号 ｜ 音乐为现场合成，保存的图片不含音频
 </footer>
 
@@ -247,31 +250,24 @@ function playMusic(key){
   s.seq.forEach(function(n){ tone(NOTES[n[0]], t, n[1]*beat*0.92); t += n[1]*beat; });
   musicTimer = setTimeout(function(){ playMusic(key); }, (t - ac.currentTime + 0.6) * 1000);
 }
-function pickSong(el){
-  var key = el.dataset.s;
-  document.querySelectorAll(".song").forEach(function(s){
-    s.classList.remove("sel"); s.classList.remove("playing");
-  });
-  if (key === "off") { musicOn = false; stopMusic(); el.classList.add("sel"); return; }
-  musicOn = true; songKey = key;
-  el.classList.add("sel"); el.classList.add("playing");
-  playMusic(key);
-}
-
-/* 默认《铃儿响叮当》：浏览器禁止无手势自动播放，
-   首次点击/触摸页面任意位置即自动响起 */
-var songKey = "bell";     // 默认曲目
-var musicOn = null;       // null = 待启动（等首次手势）
-function ensureMusic(){
-  if (musicOn === null){
-    musicOn = true;
-    var el = document.querySelector('.song[data-s="bell"]');
-    if (el) el.classList.add("playing");
+/* 「循环大笑」：摇摆动画 + 铃儿响叮当循环（默认曲目），再点一次停 */
+var songKey = "bell";     // 默认曲目：铃儿响叮当
+var laughing = false;
+function toggleLaugh(){
+  laughing = !laughing;
+  var img = document.getElementById("heroImg");
+  var btn = document.getElementById("laughBtn");
+  if (laughing){
+    img.classList.add("wiggle");
+    btn.textContent = "⏸ 停一停";
+    stopMusic();
     playMusic(songKey);
+  } else {
+    img.classList.remove("wiggle");
+    btn.textContent = "▶ 循环大笑";
+    stopMusic();
   }
 }
-document.addEventListener("touchstart", ensureMusic, {passive:true});
-document.addEventListener("click", ensureMusic);
 
 /* ============ 祝福语：场景句（按日期）+ 通用预设 ============ */
 var YEAR = new Date().getFullYear();
@@ -301,12 +297,17 @@ function renderWords(){
   var chips = [].slice.call(box.querySelectorAll(".word"));
   word = randPick(chips.length);
   chips[word].classList.add("sel");
-  renderWordNow();
+  renderHero();
 }
-function renderWordNow(){
+/* hero 区随当前模板与祝福同步刷新 */
+function renderHero(){
+  var t = themeOf(TPL);
+  document.getElementById("verTag").textContent = t.ver + " · 冬日限定";
+  document.getElementById("cardTitle").textContent = "冬日限定" + t.name;
+  document.getElementById("heroCard").src = t.src;
   var chips = [].slice.call(document.querySelectorAll("#words .word"));
-  var el = document.getElementById("wordNow");
-  if (el && chips[word]) el.textContent = chips[word].textContent;
+  document.getElementById("greetLine").textContent =
+    chips[word] ? chips[word].textContent : GREETING_LIBRARY[0];
 }
 function addWord(box, text, isScene){
   var b = document.createElement("div");
@@ -317,7 +318,7 @@ function addWord(box, text, isScene){
     b.classList.add("sel");
     var all = [].slice.call(box.querySelectorAll(".word"));
     word = all.indexOf(b);
-    step(2);
+    renderHero();
   };
   box.appendChild(b);
 }
@@ -329,7 +330,7 @@ function useCustom(){
   var all = [].slice.call(document.querySelectorAll("#words .word"));
   word = all.length - 1;
   all[word].classList.add("sel");
-  step(2);
+  renderHero();
 }
 renderWords();
 renderTpls();
@@ -346,20 +347,16 @@ function renderTpls(){
     d.onclick = function(){ pickTpl(d); };
     box.appendChild(d);
   });
-  renderTplNow();
-}
-function renderTplNow(){
-  var t = themeOf(TPL);
-  document.getElementById("tplNow").innerHTML =
-    '<img src="' + t.src + '" alt=""><div class="tname">🎲 随机抽中「' + t.name + '」</div>';
-  document.querySelectorAll(".tpl").forEach(function(el){
-    el.classList.toggle("sel", el.dataset.t === TPL);
-  });
+  renderHero();
 }
 function rerollTpl(){
   var pool = TPL_LIBRARY.filter(function(t){ return t.id !== TPL; });
   TPL = pool[randPick(pool.length)].id;
-  renderTplNow();
+  renderHero();
+}
+function rerollAll(){
+  rerollTpl();
+  rerollWord();
 }
 function rerollWord(){
   var chips = [].slice.call(document.querySelectorAll("#words .word"));
@@ -369,7 +366,7 @@ function rerollWord(){
   chips[word].classList.remove("sel");
   word = next;
   chips[word].classList.add("sel");
-  renderWordNow();
+  renderHero();
 }
 function toggleLib(id, btn){
   var el = document.getElementById(id);
@@ -379,13 +376,7 @@ function toggleLib(id, btn){
 }
 function pickTpl(el){
   TPL = el.dataset.t;
-  renderTplNow();
-  step(1);
-}
-function step(n){
-  for (var i=1;i<=3;i++){
-    document.getElementById("s"+i).classList.toggle("on", i===1 || i<=n+1);
-  }
+  renderHero();
 }
 
 /* ============ canvas 合成：750×1000，真图模板 ============ */
@@ -505,7 +496,6 @@ function generate(){
   document.getElementById("out").src = lastDataUrl;
   setHint();
   document.getElementById("mask").classList.add("show");
-  document.getElementById("s3").classList.add("on");
 }
 function setHint(){
   var hint = document.getElementById("hint");
