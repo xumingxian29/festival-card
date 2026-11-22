@@ -5,11 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>圣诞贺卡 · 30 秒一张</title>
 <!--
-  可点原型 v0.7 · 2026-11-22
-    - 「🎵 圣诞音乐」默认开启（铃儿响叮当；被浏览器拦截时首次点击自动续播）
-    - 「🎴 更换卡片」= 单次抽卡换模板+祝福（5★金/4★紫/3★蓝，10 抽保底 4★+ / 30 抽保底 5★）；十连已移除
-    - 素材库模板点击仅预览，不改动当前卡片；换卡只走「更换卡片」
-  v0.6 抽卡 / v0.5 收到祝福界面 / v0.3 素材库化 / v0.2 真图模板·一键分享 / v0.1 音乐·长按指引
+  可点原型 v0.8 · 2026-11-22
+    - 「🎴 更换卡片」点击即生效：模板与祝福立刻变换，首页大图同步刷新（抽卡弹层仅做结果展示）
+    - 祝福语自写输入框移到首页「🖼️ 做成贺卡」按钮上方
+  v0.7 音乐默认播放·素材库只预览 / v0.6 抽卡 / v0.5 收到祝福界面 / v0.3 素材库化 / v0.2 一键分享
 -->
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -157,7 +156,6 @@
   }
   .g-btns { display:flex; gap:8px; margin-top:18px; justify-content:center; }
   .g-btns button { padding:11px 16px; border-radius:99px; border:none; font-size:13px; font-weight:600; cursor:pointer; }
-  .g-use   { background:#b3282d; color:#fff; }
   .g-again { background:#6f93c4; color:#fff; }
   .g-skip  { background:#efe9df; color:#5a4f42; }
   .g-grid { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
@@ -204,9 +202,13 @@
   <p class="tap-hint">圣诞音乐已默认开启，点按钮可关 🔔</p>
   <div class="hero-btns">
     <button class="h-main" id="musicBtn" onclick="toggleMusic()">🎵 圣诞音乐 · 开</button>
-    <button class="h-sub" onclick="wish(1)">🎴 更换卡片</button>
+    <button class="h-sub" onclick="wish()">🎴 更换卡片</button>
   </div>
   <p class="pity" id="pityTip"></p>
+  <div class="custom">
+    <input id="myword" maxlength="40" placeholder="想自己写一句祝福？写在这里（可选）">
+    <button class="use" onclick="useCustom()">用这句</button>
+  </div>
   <button class="h-mini" onclick="generate()">🖼️ 做成贺卡，保存 / 分享</button>
   <div class="lib-row">
     <button class="lib-toggle" onclick="toggleLib('builder', this)">📚 素材库 ▾</button>
@@ -217,13 +219,8 @@
   <h2>选个模板 <em>点击只做预览，不会改动当前卡片；换卡请用「更换卡片」</em></h2>
   <div class="tpls" id="tpls"></div>
   <div class="tpl-preview" id="tplPreview"></div>
-  <h2>选句祝福 <em>或自己写一句</em></h2>
+  <h2>选句祝福 <em>都是现成的，点一句就换成这句</em></h2>
   <div class="words" id="words"></div>
-  <div class="custom">
-    <span class="hintx">都不喜欢？也可以自己写一句：</span>
-    <input id="myword" maxlength="40" placeholder="写一句你的祝福（可选）">
-    <button class="use" onclick="useCustom()">用这句</button>
-  </div>
   <button class="gen" onclick="generate()">用这套做贺卡 →</button>
 </section>
 
@@ -244,7 +241,7 @@
 </div>
 
 <footer>
-  v0.7 可点原型 · 2026-11-22（圣诞音乐默认播放 · 更换卡片抽卡 · 素材库仅预览）<br>
+  v0.8 可点原型 · 2026-11-22（更换卡片点击即生效 · 自写祝福上移至生成按钮上方）<br>
   全程零上传 · 零账号 ｜ 音乐为现场合成，保存的图片不含音频
 </footer>
 
@@ -360,8 +357,8 @@ function renderHero(){
   document.getElementById("cardTitle").textContent = "冬日限定" + t.name;
   document.getElementById("heroCard").src = t.src;
   var chips = [].slice.call(document.querySelectorAll("#words .word"));
-  document.getElementById("greetLine").textContent =
-    chips[word] ? chips[word].textContent : GREETING_LIBRARY[0];
+  var line = chips[word] ? chips[word].textContent : GREETING_LIBRARY[0].t;
+  document.getElementById("greetLine").textContent = line.replace(/^✏️ /, "");
 }
 function addWord(box, text, isScene){
   var b = document.createElement("div");
@@ -445,18 +442,16 @@ function renderPity(){
 }
 
 var lastPulls = [];
-function wish(n){
-  var pulls = [];
-  for (var i=0;i<n;i++){
-    var r = rollRarity();
-    var t = drawFrom(TPL_LIBRARY, r);
-    var w = drawFrom(GREETING_LIBRARY, r);
-    var isNew = !GK.got["t"+t.id];
-    GK.got["t"+t.id] = 1;
-    pulls.push({ tpl:t, word:w, r:r, isNew:isNew });
-  }
+function wish(){
+  var r = rollRarity();
+  var t = drawFrom(TPL_LIBRARY, r);
+  var w = drawFrom(GREETING_LIBRARY, r);
+  var isNew = !GK.got["t"+t.id];
+  GK.got["t"+t.id] = 1;
   saveGK();
-  showGacha(pulls);
+  /* 立即生效：首页大图（预览）与祝福同步变换，弹层只做结果展示 */
+  applyPair(t.id, w.t);
+  showGacha([{ tpl:t, word:w, r:r, isNew:isNew }]);
   renderPity();
 }
 function starHTML(r){
@@ -473,9 +468,8 @@ function showGacha(pulls){
       '<div class="g-word">'+p.word.t+'</div>' +
     '</div>' +
     '<div class="g-btns">' +
-      '<button class="g-use" onclick="usePull(0)">✓ 用这套</button>' +
-      '<button class="g-again" onclick="wish(1)">🎴 再换一张</button>' +
-      '<button class="g-skip" onclick="closeGacha()">跳过</button>' +
+      '<button class="g-again" onclick="wish()">🎴 再换一张</button>' +
+      '<button class="g-skip" onclick="closeGacha()">知道了</button>' +
     '</div>';
   var g = document.getElementById("gacha");
   g.classList.remove("reveal");
@@ -491,11 +485,6 @@ function applyPair(tplId, wordText){
   }
   chips.forEach(function(c,i){ c.classList.toggle("sel", i===word); });
   renderHero();
-}
-function usePull(i){
-  var p = lastPulls[i];
-  if (p) applyPair(p.tpl.id, p.word.t);
-  closeGacha();
 }
 function closeGacha(){
   var g = document.getElementById("gacha");
