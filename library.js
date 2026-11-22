@@ -8,33 +8,33 @@
    ============================================================ */
 
 var TPL_LIBRARY = [
-  { id:"snow",  name:"雪花夜",   ver:"雪花版", src:"tpl/snow.jpg",
+  { id:"snow",  name:"雪花夜",   ver:"雪花版", r:3, src:"tpl/snow.jpg",
     tag:"· 雪花夜 ·",  scrim:["rgba(8,16,40,.42)","rgba(8,16,40,.62)"], title:"#ffffff", sub:"#ffe3a3" },
-  { id:"pink",  name:"粉紫夜",   ver:"粉霞版", src:"tpl/pink.jpg",
+  { id:"pink",  name:"粉紫夜",   ver:"粉霞版", r:3, src:"tpl/pink.jpg",
     tag:"· 粉紫夜 ·",  scrim:["rgba(60,20,80,.34)","rgba(60,20,80,.58)"], title:"#ffffff", sub:"#ffe3a3" },
-  { id:"deer",  name:"小驯鹿",   ver:"麋鹿版", src:"tpl/deer.jpg",
+  { id:"deer",  name:"小驯鹿",   ver:"麋鹿版", r:4, src:"tpl/deer.jpg",
     tag:"· 小驯鹿 ·",  scrim:["rgba(40,10,10,.30)","rgba(40,10,10,.60)"], title:"#ffffff", sub:"#ffe9b8" },
-  { id:"tree",  name:"圣诞树下", ver:"圣树版", src:"tpl/tree.jpg",
+  { id:"tree",  name:"圣诞树下", ver:"圣树版", r:5, src:"tpl/tree.jpg",
     tag:"· 圣诞树下 ·", scrim:["rgba(6,26,14,.30)","rgba(6,26,14,.62)"], title:"#ffffff", sub:"#ffe3a3" },
-  { id:"apple", name:"平安果",   ver:"平安版", src:"tpl/apple.jpg",
+  { id:"apple", name:"平安果",   ver:"平安版", r:4, src:"tpl/apple.jpg",
     tag:"· 平安果 ·",  scrim:["rgba(50,20,5,.30)","rgba(50,20,5,.62)"], title:"#fff8ec", sub:"#ffd98a" },
-  { id:"town",  name:"小镇夜",   ver:"小镇版", src:"tpl/town.jpg",
+  { id:"town",  name:"小镇夜",   ver:"小镇版", r:5, src:"tpl/town.jpg",
     tag:"· 小镇夜 ·",  scrim:["rgba(8,14,34,.34)","rgba(8,14,34,.64)"], title:"#ffffff", sub:"#ffe3a3" }
 ];
 
 var GREETING_LIBRARY = [
-  "圣诞快乐，祝你来年好运 🎁",
-  "冬天很冷，你很暖 ☃️",
-  "今天的雪好大，愿望要实现啦 ❄️",
-  "愿你被这世界温柔以待 🕯️",
-  "平安夜记得吃苹果，平平安安 🍎",
-  "Merry Christmas，心想事成 ✨",
-  "愿你的十二月，天天都有小确幸 🎄",
-  "雪落无声，思念有声，圣诞快乐 ⛄",
-  "新的一年，把烦恼都留给冬天 🎅",
-  "灯火通明处，皆是归途，节日快乐 🏮",
-  "愿所有的好运，都在路上向你飞奔 🌟",
-  "今年最后一个月，对你好一点 🗓️",
-  "一起看初雪的人，要一起很久 🤍",
-  "铃儿响，祝福到，圣诞快乐，没完没了 🔔"
+  { t:"圣诞快乐，祝你来年好运 🎁", r:3 },
+  { t:"冬天很冷，你很暖 ☃️", r:3 },
+  { t:"今天的雪好大，愿望要实现啦 ❄️", r:4 },
+  { t:"愿你被这世界温柔以待 🕯️", r:4 },
+  { t:"平安夜记得吃苹果，平平安安 🍎", r:3 },
+  { t:"Merry Christmas，心想事成 ✨", r:3 },
+  { t:"愿你的十二月，天天都有小确幸 🎄", r:3 },
+  { t:"雪落无声，思念有声，圣诞快乐 ⛄", r:5 },
+  { t:"新的一年，把烦恼都留给冬天 🎅", r:3 },
+  { t:"灯火通明处，皆是归途，节日快乐 🏮", r:3 },
+  { t:"愿所有的好运，都在路上向你飞奔 🌟", r:4 },
+  { t:"今年最后一个月，对你好一点 🗓️", r:3 },
+  { t:"一起看初雪的人，要一起很久 🤍", r:4 },
+  { t:"铃儿响，祝福到，圣诞快乐，没完没了 🔔", r:5 }
 ];

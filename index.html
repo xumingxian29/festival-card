@@ -5,12 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>圣诞贺卡 · 30 秒一张</title>
 <!--
-  可点原型 v0.5 · 2026-11-22（「收到了一个祝福」随机抽取界面）
-    - 打开即随机收到一款模板 + 一句祝福：版式标签 + 大标题 + 祝福语 + 大图舞台
-    - 「▶ 循环大笑」= 贺卡摇摆动画 + 《铃儿响叮当》循环（再点即停）；「🎲 再抽一次」重抽
-    - 「🖼️ 做成贺卡」生成 canvas 合成图 → 保存/分享
-    - 完整素材库收进左下角「📚 素材库 ▾」折叠区
-  v0.4 随机模式 / v0.3 素材库化 / v0.2 真图模板·自写祝福·一键分享 / v0.1 音乐·长按指引
+  可点原型 v0.6 · 2026-11-22（原神式祈愿抽卡）
+    - 模板池与祝福池分 3★/4★/5★：「✨ 祈愿 ×1 / ×10」抽卡，5★ 金光 / 4★ 紫光 / 3★ 蓝光
+    - 保底：每 10 抽必出 4★+，每 30 抽必出 5★；NEW 标记首抽模板；进度存 localStorage
+    - 抽中「留用」→ 应用到首页；十连点任一格留用；素材库仍可直选（走「📚 素材库 ▾」）
+  v0.5「收到了一个祝福」界面 / v0.3 素材库化 / v0.2 真图模板·一键分享 / v0.1 音乐·长按指引
 -->
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -136,6 +135,57 @@
     border-radius:99px; background:#fff; color:#b3282d;
     font-size:14px; font-weight:600; cursor:pointer;
   }
+  /* 祈愿（抽卡） */
+  .h-ten {
+    margin-top:10px; width:100%; padding:14px; border:none; border-radius:99px;
+    background:linear-gradient(135deg,#f5c342,#d98e2b); color:#fff;
+    font-size:15px; font-weight:800; cursor:pointer; letter-spacing:2px;
+    box-shadow:0 4px 14px rgba(217,142,43,.45);
+  }
+  .h-ten:active { transform:scale(.97); }
+  .pity { font-size:11px; color:#b5aa9a; margin-top:8px; }
+  .gacha {
+    position:fixed; inset:0; background:rgba(14,10,6,.92); z-index:20;
+    display:none; align-items:center; justify-content:center; padding:20px;
+  }
+  .gacha.show { display:flex; }
+  .gacha-box { width:100%; max-width:400px; text-align:center; }
+  .g-pop { opacity:0; transform:scale(.6); transition:all .5s cubic-bezier(.2,1.4,.4,1); }
+  .gacha.reveal .g-pop { opacity:1; transform:scale(1); }
+  .g-title2 { color:#f5c342; font-size:14px; font-weight:700; letter-spacing:2px; margin-bottom:12px; }
+  .g-stars { font-size:24px; letter-spacing:8px; }
+  .g-wrap .g-stars, .g-cellstars, .g-cell.r3 .g-stars { color:#6f93c4; }
+  .r4 .g-stars, .g-cell.r4 .g-cellstars { color:#9b59d0; }
+  .r5 .g-stars, .g-cell.r5 .g-cellstars { color:#f5c342; }
+  .g-img {
+    width:100%; max-width:300px; border-radius:16px; display:block; margin:14px auto 0;
+  }
+  .g-wrap.r3 .g-img { box-shadow:0 0 24px rgba(111,147,196,.5); border:2px solid #6f93c4; }
+  .g-wrap.r4 .g-img { box-shadow:0 0 34px rgba(155,89,208,.55); border:2px solid #9b59d0; }
+  .g-wrap.r5 .g-img { box-shadow:0 0 44px rgba(245,195,66,.6); border:2px solid #f5c342; }
+  .g-name { color:#fff; font-size:20px; font-weight:800; margin-top:14px; }
+  .g-word { color:#ffe9c0; font-size:14px; margin-top:8px; line-height:1.7; padding:0 10px; }
+  .g-new {
+    display:inline-block; background:#b3282d; color:#fff; font-size:11px;
+    padding:2px 8px; border-radius:99px; margin-left:8px; vertical-align:middle;
+  }
+  .g-btns { display:flex; gap:8px; margin-top:18px; justify-content:center; }
+  .g-btns button { padding:11px 16px; border-radius:99px; border:none; font-size:13px; font-weight:600; cursor:pointer; }
+  .g-use   { background:#b3282d; color:#fff; }
+  .g-again { background:#6f93c4; color:#fff; }
+  .g-skip  { background:#efe9df; color:#5a4f42; }
+  .g-grid { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+  .g-cell {
+    width:calc((100% - 16px)/3); position:relative; border-radius:10px;
+    overflow:hidden; background:#241d14; cursor:pointer; padding-bottom:4px;
+  }
+  .g-cell img { width:100%; height:72px; object-fit:cover; display:block; }
+  .g-cellname { font-size:10px; color:#fff; padding-top:3px; }
+  .g-cellstars { font-size:9px; letter-spacing:1px; }
+  .g-cell.r3 { border:1.5px solid #6f93c4; }
+  .g-cell.r4 { border:1.5px solid #9b59d0; }
+  .g-cell.r5 { border:1.5px solid #f5c342; }
+  .g-cell .g-new { position:absolute; top:4px; left:4px; margin:0; }
   .lib-row { display:flex; align-items:center; justify-content:flex-start; margin-top:18px; }
   .lib-toggle { background:none; border:none; color:#b5aa9a; font-size:11px; cursor:pointer; padding:6px 0; }
   .lib-toggle:hover { color:#8a7f72; }
@@ -162,8 +212,10 @@
   <p class="tap-hint">点一下，让贺卡陪你开心过节 🔔</p>
   <div class="hero-btns">
     <button class="h-main" id="laughBtn" onclick="toggleLaugh()">▶ 循环大笑</button>
-    <button class="h-sub" onclick="rerollAll()">🎲 再抽一次</button>
+    <button class="h-sub" onclick="wish(1)">✨ 祈愿 ×1</button>
   </div>
+  <button class="h-ten" onclick="wish(10)">✨ 祈愿 ×10 · 十连祈愿</button>
+  <p class="pity" id="pityTip"></p>
   <button class="h-mini" onclick="generate()">🖼️ 做成贺卡，保存 / 分享</button>
   <div class="lib-row">
     <button class="lib-toggle" onclick="toggleLib('builder', this)">📚 素材库 ▾</button>
@@ -171,7 +223,7 @@
 </div>
 
 <section id="builder" style="display:none">
-  <h2>选个模板 <em id="tplCount">全部来自素材库，点一下就换</em></h2>
+  <h2>选个模板 <em id="tplCount">全部在祈愿卡池里（5★ 金光 / 4★ 紫光 / 3★ 蓝光），点一下就换</em></h2>
   <div class="tpls" id="tpls"></div>
   <h2>选句祝福 <em>或自己写一句</em></h2>
   <div class="words" id="words"></div>
@@ -195,8 +247,12 @@
   </div>
 </div>
 
+<div class="gacha" id="gacha" onclick="if(event.target===this) closeGacha()">
+  <div class="gacha-box" id="gachaBox"></div>
+</div>
+
 <footer>
-  v0.5 可点原型 · 2026-11-22（「收到了一个祝福」随机抽取界面 · 循环大笑 · 素材库左下角折叠）<br>
+  v0.6 可点原型 · 2026-11-22（原神式祈愿抽卡：模板池 + 祝福池 · 5★金光 · 十连保底）<br>
   全程零上传 · 零账号 ｜ 音乐为现场合成，保存的图片不含音频
 </footer>
 
@@ -291,7 +347,7 @@ function renderWords(){
     box.appendChild(tag);
     addWord(box, scene.text, true);
   }
-  GREETING_LIBRARY.forEach(function(w){ addWord(box, w, false); });
+  GREETING_LIBRARY.forEach(function(w){ addWord(box, w.t, false); });
   if (customText) addWord(box, "✏️ " + customText, false);
   /* 随机抽一句（含场景句与自定义） */
   var chips = [].slice.call(box.querySelectorAll(".word"));
@@ -334,6 +390,7 @@ function useCustom(){
 }
 renderWords();
 renderTpls();
+renderPity();
 
 /* ============ 模板（随机展示 + 素材库折叠自选） ============ */
 function renderTpls(){
@@ -354,19 +411,114 @@ function rerollTpl(){
   TPL = pool[randPick(pool.length)].id;
   renderHero();
 }
-function rerollAll(){
-  rerollTpl();
-  rerollWord();
+
+/* ============ 祈愿（原神式抽卡） ============ */
+/* 模板池与祝福池共享一套保底：每 10 抽必出 4★+，每 30 抽必出 5★；
+   基础概率 5★ 6% / 4★ 15% / 3★ 79%。抽卡记录与保底进度存 localStorage */
+var GK = { c:0, p4:0, p5:0, got:{} };
+try {
+  var _gk = JSON.parse(localStorage.getItem("xmasGacha") || "null");
+  if (_gk && typeof _gk.c === "number") GK = _gk;
+} catch(e){}
+function saveGK(){ try { localStorage.setItem("xmasGacha", JSON.stringify(GK)); } catch(e){} }
+
+function rollRarity(){
+  GK.c++; GK.p4++; GK.p5++;
+  var r;
+  if (GK.p5 >= 30)      r = 5;
+  else if (GK.p4 >= 10) r = Math.random() < 0.08 ? 5 : 4;
+  else {
+    var x = Math.random();
+    r = x < 0.06 ? 5 : (x < 0.21 ? 4 : 3);
+  }
+  if (r >= 4) GK.p4 = 0;
+  if (r === 5) GK.p5 = 0;
+  saveGK();
+  return r;
 }
-function rerollWord(){
+function drawFrom(pool, r){
+  var cand = pool.filter(function(x){ return x.r === r; });
+  return cand[randPick(cand.length)];
+}
+function renderPity(){
+  var el = document.getElementById("pityTip");
+  if (el) el.textContent =
+    "已祈愿 " + GK.c + " 次 ｜ " + (10 - GK.p4) + " 抽内必出 4★+ · " + (30 - GK.p5) + " 抽内必出 5★";
+}
+
+var lastPulls = [];
+function wish(n){
+  var pulls = [];
+  for (var i=0;i<n;i++){
+    var r = rollRarity();
+    var t = drawFrom(TPL_LIBRARY, r);
+    var w = drawFrom(GREETING_LIBRARY, r);
+    var isNew = !GK.got["t"+t.id];
+    GK.got["t"+t.id] = 1;
+    pulls.push({ tpl:t, word:w, r:r, isNew:isNew });
+  }
+  saveGK();
+  showGacha(pulls);
+  renderPity();
+}
+function starHTML(r){
+  var s = ""; for (var i=0;i<r;i++) s += "★"; return s;
+}
+function showGacha(pulls){
+  lastPulls = pulls;
+  var box = document.getElementById("gachaBox");
+  if (pulls.length === 1){
+    var p = pulls[0];
+    box.innerHTML =
+      '<div class="g-pop g-wrap r'+p.r+'">' +
+        '<div class="g-stars">'+starHTML(p.r)+'</div>' +
+        '<img class="g-img" src="'+p.tpl.src+'">' +
+        '<div class="g-name">'+p.tpl.name+(p.isNew?'<span class="g-new">NEW</span>':'')+'</div>' +
+        '<div class="g-word">'+p.word.t+'</div>' +
+      '</div>' +
+      '<div class="g-btns">' +
+        '<button class="g-use" onclick="usePull(0)">✓ 留用这套</button>' +
+        '<button class="g-again" onclick="wish(1)">再来一发</button>' +
+        '<button class="g-skip" onclick="closeGacha()">跳过</button>' +
+      '</div>';
+  } else {
+    var cells = pulls.map(function(p,i){
+      return '<div class="g-pop g-cell r'+p.r+'" onclick="usePull('+i+')">' +
+        (p.isNew ? '<span class="g-new">NEW</span>' : '') +
+        '<img src="'+p.tpl.src+'">' +
+        '<div class="g-cellname">'+p.tpl.name+'</div>' +
+        '<div class="g-cellstars">'+starHTML(p.r)+'</div>' +
+      '</div>';
+    }).join("");
+    box.innerHTML =
+      '<div class="g-pop"><div class="g-title2">✦ 祈愿 ×10 · 点一张留用 ✦</div>' +
+      '<div class="g-grid">'+cells+'</div></div>' +
+      '<div class="g-btns"><button class="g-skip" onclick="closeGacha()">关闭</button></div>';
+  }
+  var g = document.getElementById("gacha");
+  g.classList.remove("reveal");
+  g.classList.add("show");
+  setTimeout(function(){ g.classList.add("reveal"); }, 60);
+}
+function applyPair(tplId, wordText){
+  TPL = tplId;
   var chips = [].slice.call(document.querySelectorAll("#words .word"));
-  if (!chips.length) return;
-  var next;
-  do { next = randPick(chips.length); } while (chips.length > 1 && next === word);
-  chips[word].classList.remove("sel");
-  word = next;
-  chips[word].classList.add("sel");
+  word = 0;
+  for (var i=0;i<chips.length;i++){
+    if (chips[i].textContent === wordText || chips[i].textContent === "✏️ " + wordText){ word = i; break; }
+  }
+  chips.forEach(function(c,i){ c.classList.toggle("sel", i===word); });
   renderHero();
+}
+function usePull(i){
+  var p = lastPulls[i];
+  if (p) applyPair(p.tpl.id, p.word.t);
+  closeGacha();
+}
+function closeGacha(){
+  var g = document.getElementById("gacha");
+  g.classList.remove("show");
+  g.classList.remove("reveal");
 }
 function toggleLib(id, btn){
   var el = document.getElementById(id);
