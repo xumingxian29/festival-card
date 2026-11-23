@@ -95,3 +95,16 @@ var GREETING_LIBRARY = [
   { t:"新年第一天，阳光和好运都归你 🌅", sc:"newyear", r:4, cat:[] },
   { t:"新的一页翻开，写满喜欢的事 ✨", sc:"newyear", r:3, cat:[] }
 ];
+
+/* ============================================================
+   圣诞专场开关（2026-11-23）：true = 抽卡/图鉴/素材库只出圣诞池
+   6 款 + 圣诞与通用祝福；日常池 6 款保留在数据中隐藏。
+   圣诞季后改回 false 即全部恢复。
+   ============================================================ */
+var XMAS_ONLY = true;
+if (XMAS_ONLY) {
+  TPL_LIBRARY = TPL_LIBRARY.filter(function(t){ return t.pool === "xmas"; });
+  GREETING_LIBRARY = GREETING_LIBRARY.filter(function(g){
+    return g.sc === "xmas" || g.sc === "gen";
+  });
+}
