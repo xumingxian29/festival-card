@@ -706,7 +706,9 @@ function wish(){
     var alt = TPL_LIBRARY.filter(function(x){ return x.r === r && x.id !== TPL; });
     if (alt.length) t = alt[randPick(alt.length)];
   }
-  var pool = filteredGreetings();
+  var pool = filteredGreetings().filter(function(w){ return w.sc === t.sc; });
+  if (!pool.length) pool = filteredGreetings().filter(function(w){ return w.sc === "gen"; });
+  if (!pool.length) pool = filteredGreetings();
   var w = drawFrom(pool, r);
   var isNew = !GK.got["t"+t.id];
   GK.got["t"+t.id] = 1;
@@ -719,7 +721,10 @@ function wish(){
 function plainReroll(){
   var pool = TPL_LIBRARY.filter(function(t){ return t.id !== TPL; });
   TPL = pool[randPick(pool.length)].id;
-  var gl = filteredGreetings();
+  var cur = TPL_LIBRARY.filter(function(t){ return t.id === TPL; })[0] || {};
+  var gl = filteredGreetings().filter(function(w){ return w.sc === cur.sc; });
+  if (!gl.length) gl = filteredGreetings().filter(function(w){ return w.sc === "gen"; });
+  if (!gl.length) gl = filteredGreetings();
   var w = gl[randPick(gl.length)];
   applyPair(TPL, w.t);
 }
