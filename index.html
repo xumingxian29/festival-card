@@ -275,6 +275,9 @@
   .rv-btns button { padding:13px 20px; border-radius:99px; border:none; font-size:14px; font-weight:700; cursor:pointer; }
   .rv-mine { background:#b3282d; color:#fff; }
   .rv-save { background:#2e7d32; color:#fff; }
+.g-boost { display:inline-block; margin:0 auto 10px; padding:4px 14px; font-size:13px; color:#fff8ec; background:rgba(200,60,40,.85); border-radius:999px; }
+.g-gen { background:#c0392b; color:#fff; }
+.rv-hint { color:#c0392b; font-weight:bold; }
 </style>
 </head>
 <body>
@@ -510,9 +513,9 @@ function b64d(s){
   while (s.length % 4) s += "=";
   return decodeURIComponent(escape(atob(s)));
 }
-function makeReceiveLink(tplId, text){
+function makeReceiveLink(tplId, text, r){
   var base = location.href.split("#")[0];
-  return base + "#g=" + b64e(JSON.stringify({ t:tplId, w:text }));
+  return base + "#g=" + b64e(JSON.stringify({ t:tplId, w:text, r:(r || 0) }));
 }
 function parseIncomingCard(){
   var m = location.hash.match(/#g=([A-Za-z0-9\-_]+)/);
@@ -663,6 +666,8 @@ function pickTpl(el){ previewTpl(el); }
 
 /* ============ 抽卡引擎 ============ */
 var GK = { c:0, p4:0, p5:0, got:{} };
+var lastPullR = 0;   /* 最近一次抽卡星级（引流优化 R5：随收卡链接传给对方） */
+function dayStr(d){ return d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate(); }
 try {
   var _gk = JSON.parse(localStorage.getItem("xmasGacha") || "null");
   if (_gk && typeof _gk.c === "number") GK = _gk;
@@ -690,8 +695,9 @@ function drawFrom(pool, r){
 }
 function renderPity(){
   var el = document.getElementById("pityTip");
+  var streak = (GK.streak && GK.streak >= 2) ? (" ｜ 🔥 连抽 " + GK.streak + " 天") : "";
   if (el) el.textContent =
-    "已祈愿 " + GK.c + " 次 ｜ " + (10 - GK.p4) + " 抽内必出 4★+ · " + (30 - GK.p5) + " 抽内必出 5★";
+    "已祈愿 " + GK.c + " 次 ｜ " + (10 - GK.p4) + " 抽内必出 4★+ · " + (30 - GK.p5) + " 抽内必出 5★" + streak;
 }
 function starHTML(r){
   var s = ""; for (var i=0;i<r;i++) s += "★"; return s;
@@ -700,7 +706,18 @@ function starHTML(r){
 function wish(){
   STATS.wish++; saveStats();
   if (MODE === "random"){ plainReroll(); return; }
+  /* 每日首抽加成：当日第一抽必出 4★+，并累计连抽天数（引流优化 R5，与小程序同步） */
+  var boosted = false;
+  var today = dayStr(new Date());
+  if (GK.lastDay !== today){
+    boosted = true;
+    var yd = new Date(); yd.setDate(yd.getDate() - 1);
+    GK.streak = (GK.lastYday === dayStr(yd)) ? ((GK.streak || 0) + 1) : 1;
+    GK.lastYday = today; GK.lastDay = today;
+  }
   var r = rollRarity();
+  if (boosted && r < 4){ r = 4; GK.p4 = 0; saveGK(); }
+  lastPullR = r;
   var t = drawFrom(TPL_LIBRARY, r);
   if (t.id === TPL){
     var alt = TPL_LIBRARY.filter(function(x){ return x.r === r && x.id !== TPL; });
@@ -714,7 +731,7 @@ function wish(){
   GK.got["t"+t.id] = 1;
   saveGK();
   applyPair(t.id, w.t);
-  showGacha([{ tpl:t, word:w, r:r, isNew:isNew }]);
+  showGacha([{ tpl:t, word:w, r:r, isNew:isNew, boosted:boosted }]);
   renderPity();
 }
 /* ⑫ random 模式：无星级无弹层，直接随机换 */
@@ -748,6 +765,7 @@ function showGacha(pulls){
   box.innerHTML =
     '<div class="g-pop g-wrap r'+p.r+'">' +
       '<div class="seal-wrap" onclick="revealPull()">' +
+        (p.boosted ? '<div class="g-boost">📅 每日首抽加成 · 必出 4★+</div>' : '') +
         '<div class="seal"><div class="seal-mark">🎁</div></div>' +
         '<div class="seal-hint">轻点揭开</div>' +
       '</div>' +
@@ -762,6 +780,7 @@ function revealPull(){
   if (!p) { closeGacha(); return; }
   document.getElementById("gachaBox").innerHTML =
     '<div class="g-pop g-wrap r'+p.r+'">' +
+      (p.boosted ? '<div class="g-boost">📅 每日首抽加成 · 必出 4★+</div>' : '') +
       '<div class="g-stars">'+starHTML(p.r)+'</div>' +
       '<img class="g-img" src="'+p.tpl.src+'">' +
       '<div class="g-name">'+p.tpl.name+(p.isNew?'<span class="g-new">NEW</span>':'')+'</div>' +
@@ -769,6 +788,7 @@ function revealPull(){
     '</div>' +
     '<div class="g-btns">' +
       '<button class="g-again" onclick="wish()">🎴 再换一张</button>' +
+      '<button class="g-gen" onclick="usePull()">🖼️ 就用这张做贺卡</button>' +
       '<button class="g-skip" onclick="closeGacha()">知道了</button>' +
     '</div>';
   /* ⑤ 出金特效 + 音效 */
@@ -781,6 +801,11 @@ function revealPull(){
   } else if (p.r === 4){
     playChime(4);
   }
+}
+/* 抽到满意的直接生成（引流优化 R5：缩短转化路径，与小程序同步） */
+function usePull(){
+  closeGacha();
+  generate();
 }
 function closeGacha(){
   var g = document.getElementById("gacha");
@@ -967,7 +992,7 @@ function wrap(g, text, font, max){
 var lastDataUrl = null, lastLink = null;
 function generateFrom(tplId, text){
   STATS.gen++; saveStats();
-  lastLink = makeReceiveLink(tplId, text);
+  lastLink = makeReceiveLink(tplId, text, (tplId === TPL ? lastPullR : 0));
   lastDataUrl = renderCard(tplId, text, lastLink);
   document.getElementById("out").src = lastDataUrl;
   setHint();
@@ -1059,10 +1084,16 @@ var incoming = null;
 function showSeal(card){
   incoming = card;
   var t = themeOf(card.t);
+  var hint = "";
+  if (card.r >= 3 && card.r <= 5){
+    var st = ""; for (var i = 0; i < card.r; i++) st += "★";
+    hint = '<div class="rv-sub rv-hint">据透露：这是一张 ' + st + ' 品质的卡 ✨</div>';
+  }
   document.getElementById("rvBox").innerHTML =
     '<div class="rv-gift">🎁</div>' +
     '<div class="rv-title">有人送了你一张贺卡</div>' +
-    '<div class="rv-sub">来自一位朋友的冬日心意<br>点下面的按钮拆开看看</div>' +
+    '<div class="rv-sub">来自一位朋友的冬日心意</div>' + hint +
+    '<div class="rv-sub">点下面的按钮拆开看看</div>' +
     '<button class="rv-open" onclick="openReceived()">点 我 拆 开</button>';
   document.getElementById("receive").classList.add("show");
 }
@@ -1080,7 +1111,7 @@ function openReceived(){
     '</div>' +
     '<div class="rv-btns">' +
       '<button class="rv-save" onclick="saveReceived()">💾 保存 / 分享这张</button>' +
-      '<button class="rv-mine" onclick="mineOwn()">🎁 我也要做一张</button>' +
+      '<button class="rv-mine" onclick="mineOwn()">🎁 替 TA 回赠一张</button>' +
     '</div>';
 }
 function saveReceived(){
@@ -1091,6 +1122,8 @@ function saveReceived(){
 function mineOwn(){
   closeReceive();
   try { history.replaceState(null, "", location.pathname + location.search); } catch(e){}
+  /* 回赠闭环：拆完卡自动开抽，抽到满意的再分享 → 裂变循环（引流优化 R5） */
+  setTimeout(function(){ wish(); }, 600);
 }
 function closeReceive(){
   document.getElementById("receive").classList.remove("show");
