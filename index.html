@@ -282,6 +282,7 @@
 .g-boost { display:inline-block; margin:0 auto 10px; padding:4px 14px; font-size:13px; color:#fff8ec; background:rgba(200,60,40,.85); border-radius:999px; }
 .g-gen { background:#c0392b; color:#fff; }
 .rv-hint { color:#c0392b; font-weight:bold; }
+.g-close { margin-top:6px; font-size:13px; color:#ff6b6b; }
 </style>
 </head>
 <body>
@@ -721,6 +722,7 @@ function wish(){
   }
   var r = rollRarity();
   if (boosted && r < 4){ r = 4; GK.p4 = 0; saveGK(); }
+  if (boosted && GK.streak > 0 && GK.streak % 7 === 0 && r < 5){ r = 5; GK.p5 = 0; saveGK(); }
   lastPullR = r;
   var t = drawFrom(TPL_LIBRARY, r);
   if (t.id === TPL){
@@ -789,6 +791,7 @@ function revealPull(){
       '<img class="g-img" src="'+p.tpl.src+'">' +
       '<div class="g-name">'+p.tpl.name+(p.isNew?'<span class="g-new">NEW</span>':'')+'</div>' +
       '<div class="g-word">'+p.word.t+'</div>' +
+      (p.r === 3 && (10 - GK.p4) <= 4 ? '<div class="g-close">差一点！再抽 ' + (10 - GK.p4) + ' 次必出 4★+</div>' : '') +
     '</div>' +
     '<div class="g-btns">' +
       '<button class="g-again" onclick="wish()">🎴 再换一张</button>' +
@@ -802,8 +805,10 @@ function revealPull(){
     void f.offsetWidth;
     f.classList.add("go");
     playChime(5);
+    try { navigator.vibrate && navigator.vibrate([40, 60, 40]); } catch(e){}
   } else if (p.r === 4){
     playChime(4);
+    try { navigator.vibrate && navigator.vibrate(30); } catch(e){}
   }
 }
 /* 抽到满意的直接生成（引流优化 R5：缩短转化路径，与小程序同步） */
@@ -844,7 +849,7 @@ function openBook(){
   document.getElementById("bookSub").textContent =
     "已点亮 " + got + " / " + TPL_LIBRARY.length +
     (all ? " ｜ 🏆 全图鉴达成 · 心意收藏家！" : " ｜ 继续抽卡点亮更多贺卡") +
-    " ｜ 概率公示：5★ 6% · 4★ 15% · 3★ 79% · 保底 10 抽出 4★+、30 抽出 5★";
+    " ｜ 概率公示：5★ 6% · 4★ 15% · 3★ 79% · 保底 10 抽出 4★+、30 抽出 5★ · 每日首抽必出 4★+ · 连抽满 7 天必得 5★";
   document.getElementById("book").classList.add("show");
 }
 function closeBook(){
