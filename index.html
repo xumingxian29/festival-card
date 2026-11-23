@@ -9,7 +9,7 @@
 <meta property="og:image" content="https://christmas-card-demo.app.workbuddy.host/tpl/tree.jpg">
 <meta name="description" content="抽一张冬日限定圣诞贺卡，30 秒做一张送给朋友。">
 <!--
-  心意贺卡 v1.1.1 · 2026-11-23（引流优化 R1-R9：裂变闭环/每日加成/悬念拆卡/图鉴海报/首屏加速/随机祝福）
+  心意贺卡 v1.1.2 · 2026-11-23（引流优化 R1-R10：裂变闭环/每日加成/悬念拆卡/图鉴海报/首屏加速/随机祝福/搞怪彩蛋）
     P0 传播闭环：
       ① 收卡链接：#g= 编码模板+祝福，收卡人打开是「拆贺卡」页，可一键做自己的
       ② 成品图右下角二维码（个人化收卡链接）+「扫码也做一张」
@@ -203,8 +203,8 @@
     display:inline-block; background:#b3282d; color:#fff; font-size:11px;
     padding:2px 8px; border-radius:99px; margin-left:8px; vertical-align:middle;
   }
-  .g-btns { display:flex; gap:8px; margin-top:18px; justify-content:center; }
-  .g-btns button { padding:11px 16px; border-radius:99px; border:none; font-size:13px; font-weight:600; cursor:pointer; }
+  .g-btns { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; justify-content:center; padding:0 6px; }
+  .g-btns button { padding:11px 12px; border-radius:99px; border:none; font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap; flex:0 1 auto; }
   .g-again { background:#6f93c4; color:#fff; }
   .g-skip  { background:#efe9df; color:#5a4f42; }
   /* ④ 拆卡封套 */
@@ -312,6 +312,17 @@
     background:rgba(30,28,26,.92); border-radius:99px; opacity:0; pointer-events:none;
     transition:opacity .35s, transform .35s; z-index:60; text-align:center; }
   .first-tip.show { opacity:1; transform:translate(-50%,0); }
+
+  /* ===== R10 搞怪模块 ===== */
+  .g-joker { display:inline-block; margin-left:6px; padding:1px 8px; font-size:11px;
+    color:#3a2b18; background:#ffd166; border-radius:99px; vertical-align:2px; }
+  .g-santa { margin-top:8px; font-size:12.5px; color:#8a7a5c; line-height:1.6; }
+  .g-wrap.joker .g-img { box-shadow:0 0 0 3px #ffd166, 0 0 22px rgba(255,209,102,.55); }
+  #toast { position:fixed; left:50%; bottom:74px; transform:translate(-50%,12px);
+    padding:10px 20px; font-size:13px; color:#fff; background:rgba(30,28,26,.94);
+    border-radius:99px; opacity:0; pointer-events:none; transition:opacity .3s, transform .3s;
+    z-index:80; white-space:normal; max-width:78%; text-align:center; line-height:1.5; }
+  #toast.show { opacity:1; transform:translate(-50%,0); }
 </style>
 </head>
 <body>
@@ -329,7 +340,7 @@
   <h1 id="cardTitle"></h1>
   <p class="greet" id="greetLine" onclick="editGreet()" title="点一下可以直接改字"></p>
   <p class="greet-edit-hint" id="greetHint">祝福语可以直接点一下改字 ✏️</p>
-  <div class="hero-img" id="heroImg">
+  <div class="hero-img" id="heroImg" onclick="tapCard()">
     <img id="heroCard" alt="当前贺卡插画">
   </div>
   <p class="tap-hint">圣诞音乐已默认开启，点按钮可关 🔔</p>
@@ -405,17 +416,17 @@
 <div class="first-tip" id="firstTip">👆 点「做成贺卡」生成图片，能存相册也能发朋友</div>
 
 <footer>
-  <span id="verInfo">v1.1.1 可点原型 · 2026-11-23</span><br>
+  <span id="verInfo">v1.1.2 可点原型 · 2026-11-23</span><br>
   全程零上传 · 零账号 ｜ 音乐为现场合成，保存的图片不含音频<br>
   <span id="modeTag"></span>
 </footer>
 
 <script src="library.js"></script>
 <script>
-var VERSION = "v1.1.1";
+var VERSION = "v1.1.2";
 
 /* ============ ⑪ 轻量埋点（纯本地，连点版本号 3 次导出） ============ */
-var STATS = { open:0, receive:0, wish:0, gen:0, share:0, copylink:0 };
+var STATS = { open:0, receive:0, wish:0, gen:0, share:0, copylink:0, joker:0 };
 try {
   var _st = JSON.parse(localStorage.getItem("xmasStats") || "null");
   if (_st) STATS = _st;
@@ -800,10 +811,13 @@ function wish(){
   var w = { t: pickGreet(t) };
   var isNew = !GK.got["t"+t.id];
   GK.got["t"+t.id] = 1;
+  /* R10 整活卡：独立彩蛋，不影响星级与保底 */
+  var joker = Math.random() < JOKER_RATE;
+  if (joker){ STATS.joker = (STATS.joker || 0) + 1; saveStats(); }
   saveGK();
   pushRecent(t.id, r);
   applyPair(t.id, w.t);
-  showGacha([{ tpl:t, word:w, r:r, isNew:isNew, boosted:boosted }]);
+  showGacha([{ tpl:t, word:w, r:r, isNew:isNew, boosted:boosted, joker:joker }]);
   renderPity();
 }
 /* ⑫ random 模式：无星级无弹层，直接随机换 */
@@ -831,12 +845,13 @@ function showGacha(pulls){
   lastPulls = pulls;
   var p = pulls[0];
   var box = document.getElementById("gachaBox");
+  var sealHint = (typeof SEAL_HINTS !== "undefined") ? SEAL_HINTS[randPick(SEAL_HINTS.length)] : "轻点揭开";
   box.innerHTML =
     '<div class="g-pop g-wrap r'+p.r+'">' +
       '<div class="seal-wrap" onclick="revealPull()">' +
         (p.boosted ? '<div class="g-boost">📅 每日首抽加成 · 必出 4★+</div>' : '') +
         '<div class="seal"><div class="seal-mark">🎁</div></div>' +
-        '<div class="seal-hint">轻点揭开</div>' +
+        '<div class="seal-hint">'+sealHint+'</div>' +
       '</div>' +
     '</div>';
   var g = document.getElementById("gacha");
@@ -844,22 +859,28 @@ function showGacha(pulls){
   g.classList.add("show");
   setTimeout(function(){ g.classList.add("reveal"); }, 60);
 }
+function santaSay(r, joker){
+  if (joker) return JOKER_LINES[randPick(JOKER_LINES.length)];
+  var arr = SANTA_SAY[r] || SANTA_SAY[3];
+  return arr[randPick(arr.length)];
+}
 function revealPull(){
   var p = lastPulls[0];
   if (!p) { closeGacha(); return; }
   document.getElementById("gachaBox").innerHTML =
-    '<div class="g-pop g-wrap r'+p.r+'">' +
+    '<div class="g-pop g-wrap r'+p.r+(p.joker?' joker':'')+'">' +
       (p.boosted ? '<div class="g-boost">📅 每日首抽加成 · 必出 4★+</div>' : '') +
       '<div class="g-stars">'+starHTML(p.r)+'</div>' +
       '<img class="g-img" src="'+p.tpl.src+'">' +
-      '<div class="g-name">'+p.tpl.name+(p.isNew?'<span class="g-new">NEW</span>':'')+'</div>' +
+      '<div class="g-name">'+p.tpl.name+(p.isNew?'<span class="g-new">NEW</span>':'')+(p.joker?'<span class="g-joker">🤡 整活</span>':'')+'</div>' +
       '<div class="g-word">'+p.word.t+'</div>' +
+      '<div class="g-santa">'+santaSay(p.r, p.joker)+'</div>' +
       (p.r === 3 && (10 - GK.p4) <= 4 ? '<div class="g-close">差一点！再抽 ' + (10 - GK.p4) + ' 次必出 4★+</div>' : '') +
     '</div>' +
     '<div class="g-btns">' +
       '<button class="g-again" onclick="wish()">🎴 再换一张</button>' +
       '<button class="g-gen" onclick="usePull()">🖼️ 就用这张做贺卡</button>' +
-      '<button class="g-skip" onclick="closeGacha()">知道了</button>' +
+      '<button class="g-skip" onclick="closeGacha()">'+(p.joker?'收下这份离谱':'知道了')+'</button>' +
     '</div>';
   /* ⑤ 出金特效 + 音效 */
   if (p.r === 5){
@@ -883,6 +904,37 @@ function closeGacha(){
   var g = document.getElementById("gacha");
   g.classList.remove("show");
   g.classList.remove("reveal");
+}
+/* R10 卡面彩蛋：1.2 秒内连点 3 下，圣诞老人回你一句 */
+var TAP_LINES = [
+  "🎅 别戳了，这张是画的",
+  "🎅 再戳就涨价了",
+  "🎅 痒，真的痒",
+  "🎅 许愿请对着卡片小声说",
+  "🎅 戳坏不赔，只有祝福"
+];
+var tapN = 0, tapTimer = null;
+function toast(msg){
+  var el = document.getElementById("toast");
+  if (!el){
+    el = document.createElement("div");
+    el.id = "toast";
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(el._t);
+  el._t = setTimeout(function(){ el.classList.remove("show"); }, 1900);
+}
+function tapCard(){
+  tapN++;
+  clearTimeout(tapTimer);
+  tapTimer = setTimeout(function(){ tapN = 0; }, 1200);
+  if (tapN >= 3){
+    tapN = 0;
+    toast(TAP_LINES[randPick(TAP_LINES.length)]);
+    try { navigator.vibrate && navigator.vibrate(20); } catch(e){}
+  }
 }
 function toggleLib(id, btn){
   var el = document.getElementById(id);
@@ -1105,10 +1157,11 @@ function dataUrlToFile(dataUrl){
 function shareImg(){
   if (!lastDataUrl) return;
   STATS.share++; saveStats();
+  var title = (typeof SHARE_TITLES !== "undefined") ? SHARE_TITLES[randPick(SHARE_TITLES.length)] : "给你做了一张贺卡 🎄";
   try {
     var f = dataUrlToFile(lastDataUrl);
     if (navigator.canShare && navigator.canShare({files:[f]})){
-      navigator.share({ files:[f], title:"心意贺卡", text:"给你做了一张贺卡 🎄" });
+      navigator.share({ files:[f], title:"心意贺卡", text:title });
       return;
     }
   } catch(e){}
