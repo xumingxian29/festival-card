@@ -60,7 +60,7 @@ ok(/id="heroImg" onclick="tapCard\(\)"/.test(html), '首页卡面挂上点击彩
 ok(/SEAL_HINTS\[randPick/.test(html), '封套提示已改为随机搞怪句');
 ok(/SHARE_TITLES\[randPick/.test(html), '分享文案已改为随机搞怪句');
 ok(html.indexOf('收下这份离谱') >= 0, '整活卡的关闭按钮换了说法');
-ok(/var VERSION = "v1\.1\.2"/.test(html), '版本号 v1.1.2');
+ok(/var VERSION = "v1\.1\.[3-9]"/.test(html), '版本号已推进（R11 起 ≥v1.1.3）');
 
 console.log('\n结果: ' + (fails === 0 ? '全部通过 ✅' : fails + ' 项失败 ❌'));
 process.exit(fails === 0 ? 0 : 1);

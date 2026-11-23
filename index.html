@@ -9,7 +9,7 @@
 <meta property="og:image" content="https://christmas-card-demo.app.workbuddy.host/tpl/tree.jpg">
 <meta name="description" content="抽一张冬日限定圣诞贺卡，30 秒做一张送给朋友。">
 <!--
-  心意贺卡 v1.1.2 · 2026-11-23（引流优化 R1-R10：裂变闭环/每日加成/悬念拆卡/图鉴海报/首屏加速/随机祝福/搞怪彩蛋）
+  心意贺卡 v1.1.3 · 2026-11-23（引流优化 R1-R11：裂变闭环/每日加成/悬念拆卡/图鉴海报/首屏加速/随机祝福/搞怪彩蛋/手气称号/卡面贴纸）
     P0 传播闭环：
       ① 收卡链接：#g= 编码模板+祝福，收卡人打开是「拆贺卡」页，可一键做自己的
       ② 成品图右下角二维码（个人化收卡链接）+「扫码也做一张」
@@ -323,6 +323,16 @@
     border-radius:99px; opacity:0; pointer-events:none; transition:opacity .3s, transform .3s;
     z-index:80; white-space:normal; max-width:78%; text-align:center; line-height:1.5; }
   #toast.show { opacity:1; transform:translate(-50%,0); }
+
+  /* ===== R11 手气称号 + 卡面贴纸 ===== */
+  .g-luck { margin-top:8px; font-size:13px; font-weight:700; color:#ffd166; letter-spacing:1px; }
+  .g-luck.r5 { color:#f5c342; text-shadow:0 0 14px rgba(245,195,66,.6); }
+  .stick-label { margin:16px 0 6px; font-size:12px; color:#8a7f72; }
+  .stick-row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:12px; }
+  .stick-btn { width:44px; height:44px; border-radius:14px; border:1px solid #e6dfd2;
+    background:#fff; font-size:20px; line-height:1; cursor:pointer; color:#8a7f72;
+    display:flex; align-items:center; justify-content:center; padding:0; }
+  .stick-btn.sel { border-color:#b3282d; box-shadow:0 0 0 2px rgba(179,40,45,.18); background:#fff7f4; }
 </style>
 </head>
 <body>
@@ -355,6 +365,8 @@
     <button class="use" onclick="useCustom()">用这句</button>
   </div>
   <button class="h-mini" onclick="generate()">🖼️ 做成贺卡，保存 / 分享</button>
+  <p class="stick-label">给卡片贴个贴纸 <em>（贴纸会印进图片，点一下换一个）</em></p>
+  <div class="stick-row" id="stickRow"></div>
   <div class="lib-row">
     <button class="lib-toggle" onclick="toggleLib('builder', this)">📚 素材库 ▾</button>
     <button class="lib-toggle" onclick="openBook()">📖 我的图鉴</button>
@@ -416,14 +428,14 @@
 <div class="first-tip" id="firstTip">👆 点「做成贺卡」生成图片，能存相册也能发朋友</div>
 
 <footer>
-  <span id="verInfo">v1.1.2 可点原型 · 2026-11-23</span><br>
+  <span id="verInfo">v1.1.3 可点原型 · 2026-11-23</span><br>
   全程零上传 · 零账号 ｜ 音乐为现场合成，保存的图片不含音频<br>
   <span id="modeTag"></span>
 </footer>
 
 <script src="library.js"></script>
 <script>
-var VERSION = "v1.1.2";
+var VERSION = "v1.1.3";
 
 /* ============ ⑪ 轻量埋点（纯本地，连点版本号 3 次导出） ============ */
 var STATS = { open:0, receive:0, wish:0, gen:0, share:0, copylink:0, joker:0 };
@@ -803,6 +815,9 @@ function wish(){
   if (boosted && r < 4){ r = 4; GK.p4 = 0; saveGK(); }
   if (boosted && GK.streak > 0 && GK.streak % 7 === 0 && r < 5){ r = 5; GK.p5 = 0; saveGK(); }
   lastPullR = r;
+  /* R11 连续非酋计数：三连 3★ 时给个安慰提示 */
+  GK.low = (r === 3) ? ((GK.low || 0) + 1) : 0;
+  saveGK();
   var t = drawFrom(TPL_LIBRARY, r);
   if (t.id === TPL){
     var alt = TPL_LIBRARY.filter(function(x){ return x.r === r && x.id !== TPL; });
@@ -817,7 +832,7 @@ function wish(){
   saveGK();
   pushRecent(t.id, r);
   applyPair(t.id, w.t);
-  showGacha([{ tpl:t, word:w, r:r, isNew:isNew, boosted:boosted, joker:joker }]);
+  showGacha([{ tpl:t, word:w, r:r, isNew:isNew, boosted:boosted, joker:joker, lowStreak:GK.low }]);
   renderPity();
 }
 /* ⑫ random 模式：无星级无弹层，直接随机换 */
@@ -871,6 +886,8 @@ function revealPull(){
     '<div class="g-pop g-wrap r'+p.r+(p.joker?' joker':'')+'">' +
       (p.boosted ? '<div class="g-boost">📅 每日首抽加成 · 必出 4★+</div>' : '') +
       '<div class="g-stars">'+starHTML(p.r)+'</div>' +
+      luckHTML(p.r) +
+      (p.lowStreak >= 3 ? '<div class="g-close">😐 三连非酋 · 保底正在靠近</div>' : '') +
       '<img class="g-img" src="'+p.tpl.src+'">' +
       '<div class="g-name">'+p.tpl.name+(p.isNew?'<span class="g-new">NEW</span>':'')+(p.joker?'<span class="g-joker">🤡 整活</span>':'')+'</div>' +
       '<div class="g-word">'+p.word.t+'</div>' +
@@ -935,6 +952,35 @@ function tapCard(){
     toast(TAP_LINES[randPick(TAP_LINES.length)]);
     try { navigator.vibrate && navigator.vibrate(20); } catch(e){}
   }
+}
+
+/* ============ R11 卡面贴纸（印进成品图，无需新素材） ============ */
+var STICKER = "";
+try { STICKER = localStorage.getItem("xmasSticker") || ""; } catch(e){ STICKER = ""; }
+function renderStickers(){
+  var row = document.getElementById("stickRow");
+  if (!row) return;
+  row.innerHTML = "";
+  STICKERS.forEach(function(s){
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "stick-btn" + (s.id === STICKER ? " sel" : "");
+    b.title = s.name;
+    b.textContent = s.id || "无";
+    b.onclick = function(){ setSticker(s.id); };
+    row.appendChild(b);
+  });
+}
+function setSticker(id){
+  STICKER = id;
+  try { localStorage.setItem("xmasSticker", id); } catch(e){}
+  renderStickers();
+  toast(id ? ("已贴上 " + id + " · 生成时印进图片") : "已去掉贴纸");
+}
+/* R11 手气称号文案 */
+function luckHTML(r){
+  var l = LUCK[r] || LUCK[3];
+  return '<div class="g-luck r'+r+'">'+l.emo+' '+l.name+'手气 · '+l.tip+'</div>';
 }
 function toggleLib(id, btn){
   var el = document.getElementById(id);
@@ -1085,6 +1131,21 @@ function renderCard(tpl, text, receiveLink){
   g.font = "30px serif"; g.fillStyle = "rgba(255,215,130,.9)";
   g.fillText("❄ ─── ✦ ─── ❄", 375, top + blockH + 40);
 
+  /* R11 贴纸：贴在图片区右上，白色圆底 + 微旋转，像真贴上去的 */
+  if (STICKER){
+    g.save();
+    g.translate(644, 306);
+    g.rotate(-0.16);
+    g.shadowColor = "rgba(0,0,0,.38)"; g.shadowBlur = 14; g.shadowOffsetY = 5;
+    g.fillStyle = "rgba(255,255,255,.93)";
+    g.beginPath(); g.arc(0, 0, 60, 0, Math.PI * 2); g.fill();
+    g.shadowColor = "transparent"; g.shadowBlur = 0; g.shadowOffsetY = 0;
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.font = "76px serif";
+    g.fillText(STICKER, 0, 6);
+    g.restore();
+  }
+
   /* ② 右下角回流二维码（个人化收卡链接） */
   var qrOk = false;
   if (receiveLink && typeof qrcode === "function"){
@@ -1158,6 +1219,10 @@ function shareImg(){
   if (!lastDataUrl) return;
   STATS.share++; saveStats();
   var title = (typeof SHARE_TITLES !== "undefined") ? SHARE_TITLES[randPick(SHARE_TITLES.length)] : "给你做了一张贺卡 🎄";
+  /* R11 带手气称号，晒图更有话题 */
+  if (lastPullR && typeof LUCK !== "undefined" && LUCK[lastPullR]){
+    title = "我抽到 " + LUCK[lastPullR].emo + LUCK[lastPullR].name + " 卡，" + title;
+  }
   try {
     var f = dataUrlToFile(lastDataUrl);
     if (navigator.canShare && navigator.canShare({files:[f]})){
@@ -1210,7 +1275,8 @@ function showSeal(card){
   var hint = "";
   if (card.r >= 3 && card.r <= 5){
     var st = ""; for (var i = 0; i < card.r; i++) st += "★";
-    hint = '<div class="rv-sub rv-hint">据透露：这是一张 ' + st + ' 品质的卡 ✨</div>';
+    var lk = LUCK[card.r] || LUCK[3];
+    hint = '<div class="rv-sub rv-hint">据透露：这是一张 ' + st + ' · ' + lk.emo + lk.name + ' 手气的卡 ✨</div>';
   }
   document.getElementById("rvBox").innerHTML =
     '<div class="rv-gift">🎁</div>' +
@@ -1405,6 +1471,7 @@ renderWords();
 renderTpls();
 renderPity();
 renderRecent();
+renderStickers();
 initFirstTip();
 document.getElementById("verInfo").onclick = verInfoTap;
 document.getElementById("wishBtn").textContent = MODE === "random" ? "🎲 换一张" : "🎴 更换卡片";
