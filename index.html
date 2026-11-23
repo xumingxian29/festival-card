@@ -114,6 +114,9 @@
     background:#5a4f42; color:#fff; cursor:pointer; flex-shrink:0;
   }
   .custom .hintx { font-size:11px; color:#b5aa9a; width:100%; }
+  /* R16 署名输入：紧凑一行 */
+  .sign-c { margin-top:8px; }
+  .sign-c input { flex:1; min-width:0; }
   .gen {
     width:100%; padding:15px; border:none; border-radius:14px;
     background:#b3282d; color:#fff; font-size:16px; font-weight:700;
@@ -388,6 +391,9 @@
     <input id="myword" maxlength="40" placeholder="想自己写一句祝福？写在这里（可选）">
     <button class="use" onclick="useCustom()">用这句</button>
   </div>
+  <div class="custom sign-c">
+    <input id="mysign" maxlength="10" placeholder="🖊️ 署名（选填）：写上名字，收卡人会看到「来自 xx」">
+  </div>
   <button class="h-mini" onclick="generate()">🖼️ 做成贺卡，保存 / 分享</button>
   <p class="stick-label">给卡片贴个贴纸 <em>（贴纸会印进图片，点一下换一个）</em></p>
   <div class="stick-row" id="stickRow"></div>
@@ -454,14 +460,14 @@
 <div class="first-tip" id="firstTip">👆 点「做成贺卡」生成图片，能存相册也能发朋友</div>
 
 <footer>
-  <span id="verInfo">v1.1.7 可点原型 · 2026-11-24</span><br>
+  <span id="verInfo">v1.1.8 可点原型 · 2026-11-24</span><br>
   全程零上传 · 零账号 ｜ 音乐为现场合成，保存的图片不含音频<br>
   <span id="modeTag"></span>
 </footer>
 
 <script src="library.js"></script>
 <script>
-var VERSION = "v1.1.7";
+var VERSION = "v1.1.8";
 
 /* ============ ⑪ 轻量埋点（纯本地，连点版本号 3 次导出） ============ */
 var STATS = { open:0, receive:0, wish:0, gen:0, share:0, copylink:0, caption:0, joker:0 };
@@ -645,9 +651,17 @@ function b64d(s){
 }
 /* R13 接龙手数：链接里带 h，拆卡页显示这是这条接龙的第几张 */
 var RELAY_HANDS = 0;
-function makeReceiveLink(tplId, text, r, hands){
+/* R16 署名：可选，随链接编码、印进落款、显示在收卡页（零后端） */
+var SIGN = "";
+try { SIGN = String(localStorage.getItem("xmasSign") || "").slice(0, 10); } catch(e){ SIGN = ""; }
+function sanitizeSign(s){
+  return String(s || "").replace(/[<>"'\\\n\r]/g, "").trim().slice(0, 10);
+}
+function makeReceiveLink(tplId, text, r, hands, sig){
   var base = location.href.split("#")[0];
-  return base + "#g=" + b64e(JSON.stringify({ t:tplId, w:text, r:(r || 0), h:(hands || 0) }));
+  var p = { t:tplId, w:text, r:(r || 0), h:(hands || 0) };
+  if (sig) p.s = sig;
+  return base + "#g=" + b64e(JSON.stringify(p));
 }
 function parseIncomingCard(){
   var m = location.hash.match(/#g=([A-Za-z0-9\-_]+)/);
@@ -656,6 +670,11 @@ function parseIncomingCard(){
     var o = JSON.parse(b64d(m[1]));
     if (o && themeOf(o.t) && o.w && typeof o.w === "string"){
       o.h = (typeof o.h === "number" && o.h >= 0 && o.h < 999) ? o.h : 0;
+      /* R16 署名清洗：非法字符剔除，空串删除 */
+      if (typeof o.s === "string"){
+        o.s = sanitizeSign(o.s);
+        if (!o.s) delete o.s;
+      }
       return o;
     }
   } catch(e){}
@@ -1228,10 +1247,10 @@ function renderCard(tpl, text, receiveLink){
     }
   }
 
-  /* 落款 */
+  /* 落款：有署名显示「来自 xx」，否则保持匿名 */
   g.font = "22px sans-serif"; g.textAlign = "center";
   g.fillStyle = "rgba(255,255,255,.72)";
-  g.fillText("来自一位朋友的手作贺卡 · " + YEAR, 375, 952);
+  g.fillText(SIGN ? ("来自 " + SIGN + " 的手作贺卡 · " + YEAR) : ("来自一位朋友的手作贺卡 · " + YEAR), 375, 952);
   return c.toDataURL("image/png");
 }
 function wrap(g, text, font, max){
@@ -1249,7 +1268,11 @@ function wrap(g, text, font, max){
 var lastDataUrl = null, lastLink = null;
 function generateFrom(tplId, text){
   STATS.gen++; saveStats();
-  lastLink = makeReceiveLink(tplId, text, (tplId === TPL ? lastPullR : 0), RELAY_HANDS);
+  /* R16 署名：生成前读取输入并记忆，随链接与落款一起带出去 */
+  var si = document.getElementById("mysign");
+  if (si) SIGN = sanitizeSign(si.value);
+  try { localStorage.setItem("xmasSign", SIGN); } catch(e){}
+  lastLink = makeReceiveLink(tplId, text, (tplId === TPL ? lastPullR : 0), RELAY_HANDS, SIGN);
   lastDataUrl = renderCard(tplId, text, lastLink);
   document.getElementById("out").src = lastDataUrl;
   setHint();
@@ -1400,10 +1423,18 @@ function showSeal(card){
   var relay = (card.h > 0)
     ? '<div class="rv-sub rv-relay">🔗 这是接龙里的第 ' + (card.h + 1) + ' 张卡 · 前面还有人送过</div>'
     : '<div class="rv-sub">你是第一个拆开这张卡的人 👀</div>';
+  /* R16 署名：知道是谁发的，拆卡欲和回复欲都更强 */
+  var title, fromLine;
+  if (card.s){
+    title = '<div class="rv-title">✉️ ' + card.s + ' 送了你一张贺卡</div>';
+    fromLine = '';
+  } else {
+    title = '<div class="rv-title">有人送了你一张贺卡</div>';
+    fromLine = '<div class="rv-sub">来自一位朋友的冬日心意</div>';
+  }
   document.getElementById("rvBox").innerHTML =
     '<div class="rv-gift">🎁</div>' +
-    '<div class="rv-title">有人送了你一张贺卡</div>' +
-    relay + hint +
+    title + fromLine + relay + hint +
     '<div class="rv-sub">点下面的按钮拆开看看</div>' +
     '<button class="rv-open" onclick="openReceived()">点 我 拆 开</button>';
   document.getElementById("receive").classList.add("show");
@@ -1610,6 +1641,11 @@ renderPity();
 renderRecent();
 renderStickers();
 initFirstTip();
+/* R16 回填上次的署名，改一个字就能一直用 */
+(function(){
+  var si = document.getElementById("mysign");
+  if (si && SIGN) si.value = SIGN;
+})();
 document.getElementById("verInfo").onclick = verInfoTap;
 document.getElementById("wishBtn").textContent = MODE === "random" ? "🎲 换一张" : "🎴 更换卡片";
 if (MODE === "random"){

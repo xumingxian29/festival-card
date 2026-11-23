@@ -53,7 +53,7 @@ ok(readH(packH(-5)) === 0, '负数被夹到 0');
 
 console.log('== 2. 页面接线 ==');
 ok(/var RELAY_HANDS = 0;/.test(html), '存在接龙手数全局变量');
-ok(/makeReceiveLink\(tplId, text, \(tplId === TPL \? lastPullR : 0\), RELAY_HANDS\)/.test(html), '生成链接时带上手数');
+ok(/makeReceiveLink\(tplId, text, \(tplId === TPL \? lastPullR : 0\), RELAY_HANDS(, SIGN)?\)/.test(html), '生成链接时带上手数');
 ok(/RELAY_HANDS = \(card\.h \|\| 0\) \+ 1/.test(html), '拆卡后手数 +1，回赠可继续传');
 ok(/接龙里的第/.test(html) && /你是第一个拆开这张卡的人/.test(html), '拆卡页展示第几手 / 首拆提示');
 ok(/接龙第 ' \+ \(card\.h \+ 1\) \+ ' 张/.test(html), '揭开后仍标注接龙序号');
