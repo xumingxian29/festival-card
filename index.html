@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>心意贺卡 · 30 秒一张</title>
+<title>你有一张未拆的圣诞贺卡 📮｜心意贺卡</title>
+<meta property="og:title" content="你有一张未拆的圣诞贺卡 📮">
+<meta property="og:description" content="点开拆卡，抽一张属于你的冬日限定贺卡；再抽一张送朋友 🎄">
+<meta property="og:image" content="https://christmas-card-demo.app.workbuddy.host/tpl/tree.jpg">
+<meta name="description" content="抽一张冬日限定圣诞贺卡，30 秒做一张送给朋友。">
 <!--
   心意贺卡 v0.9.0 · 2026-11-22（按改进清单实施，去掉每日免费抽）
     P0 传播闭环：
@@ -839,7 +843,8 @@ function openBook(){
   var all = got === TPL_LIBRARY.length;
   document.getElementById("bookSub").textContent =
     "已点亮 " + got + " / " + TPL_LIBRARY.length +
-    (all ? " ｜ 🏆 全图鉴达成 · 心意收藏家！" : " ｜ 继续抽卡点亮更多贺卡");
+    (all ? " ｜ 🏆 全图鉴达成 · 心意收藏家！" : " ｜ 继续抽卡点亮更多贺卡") +
+    " ｜ 概率公示：5★ 6% · 4★ 15% · 3★ 79% · 保底 10 抽出 4★+、30 抽出 5★";
   document.getElementById("book").classList.add("show");
 }
 function closeBook(){
