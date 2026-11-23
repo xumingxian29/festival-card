@@ -9,7 +9,7 @@
 <meta property="og:image" content="https://christmas-card-demo.app.workbuddy.host/tpl/tree.jpg">
 <meta name="description" content="抽一张冬日限定圣诞贺卡，30 秒做一张送给朋友。">
 <!--
-  心意贺卡 v0.9.0 · 2026-11-22（按改进清单实施，去掉每日免费抽）
+  心意贺卡 v1.1.0 · 2026-11-23（引流优化 R1-R8：裂变闭环/每日加成/悬念拆卡/图鉴海报/首屏加速）
     P0 传播闭环：
       ① 收卡链接：#g= 编码模板+祝福，收卡人打开是「拆贺卡」页，可一键做自己的
       ② 成品图右下角二维码（个人化收卡链接）+「扫码也做一张」
@@ -283,6 +283,31 @@
 .g-gen { background:#c0392b; color:#fff; }
 .rv-hint { color:#c0392b; font-weight:bold; }
 .g-close { margin-top:6px; font-size:13px; color:#ff6b6b; }
+
+  /* ===== R8 图鉴收藏海报 ===== */
+  .book-poster { margin-top:14px; width:100%; padding:11px; font-size:13px; font-weight:600;
+    color:#fff; background:#b3282d; border:none; border-radius:99px; }
+  .poster { position:fixed; inset:0; background:rgba(6,10,8,.88); display:none;
+    align-items:center; justify-content:center; padding:18px; z-index:70; }
+  .poster.show { display:flex; }
+  .poster-box { width:100%; max-width:330px; text-align:center; }
+  .poster-box img { width:100%; border-radius:14px; box-shadow:0 12px 34px rgba(0,0,0,.55); display:block; }
+  .poster-tip { margin:12px 0; font-size:12px; color:#ffe3a3; }
+
+  /* ===== R8 抽卡记录 ===== */
+  .recent { margin-top:12px; display:flex; gap:8px; overflow-x:auto; align-items:center;
+    padding-bottom:4px; -webkit-overflow-scrolling:touch; }
+  .recent::-webkit-scrollbar { display:none; }
+  .recent-title { font-size:11px; color:#9a8f7d; white-space:nowrap; }
+  .recent-img { width:46px; height:60px; object-fit:cover; border-radius:8px;
+    border:1px solid rgba(0,0,0,.08); flex:0 0 auto; }
+
+  /* ===== R8 首次进入引导 ===== */
+  .first-tip { position:fixed; left:50%; bottom:18px; transform:translate(-50%,20px);
+    max-width:88%; padding:10px 18px; font-size:12px; line-height:1.5; color:#fff;
+    background:rgba(30,28,26,.92); border-radius:99px; opacity:0; pointer-events:none;
+    transition:opacity .35s, transform .35s; z-index:60; text-align:center; }
+  .first-tip.show { opacity:1; transform:translate(-50%,0); }
 </style>
 </head>
 <body>
@@ -309,6 +334,7 @@
     <button class="h-sub" id="wishBtn" onclick="wish()">🎴 更换卡片</button>
   </div>
   <p class="pity" id="pityTip"></p>
+  <div class="recent" id="recent"></div>
   <div class="custom">
     <input id="myword" maxlength="40" placeholder="想自己写一句祝福？写在这里（可选）">
     <button class="use" onclick="useCustom()">用这句</button>
@@ -355,7 +381,16 @@
     <div class="book-title">📖 我的图鉴</div>
     <div class="book-sub" id="bookSub"></div>
     <div class="book-grid" id="bookGrid"></div>
+    <button class="book-poster" onclick="makePoster()">🖼️ 生成收藏海报，去炫耀</button>
     <button class="book-close" onclick="closeBook()">关闭图鉴</button>
+  </div>
+</div>
+
+<div class="poster" id="poster" onclick="if(event.target===this) closePoster()">
+  <div class="poster-box">
+    <img id="posterImg" alt="我的贺卡图鉴海报">
+    <p class="poster-tip">长按图片保存 · 发到群里羚耀一下</p>
+    <button class="book-close" onclick="closePoster()">关闭</button>
   </div>
 </div>
 
@@ -363,15 +398,17 @@
   <div class="rv-box" id="rvBox"></div>
 </div>
 
+<div class="first-tip" id="firstTip">👆 点「做成贺卡」生成图片，能存相册也能发朋友</div>
+
 <footer>
-  <span id="verInfo">v0.9.0 可点原型 · 2026-11-22</span><br>
+  <span id="verInfo">v1.1.0 可点原型 · 2026-11-23</span><br>
   全程零上传 · 零账号 ｜ 音乐为现场合成，保存的图片不含音频<br>
   <span id="modeTag"></span>
 </footer>
 
 <script src="library.js"></script>
 <script>
-var VERSION = "v0.9.0";
+var VERSION = "v1.1.0";
 
 /* ============ ⑪ 轻量埋点（纯本地，连点版本号 3 次导出） ============ */
 var STATS = { open:0, receive:0, wish:0, gen:0, share:0, copylink:0 };
@@ -423,13 +460,22 @@ function hideLoader(){
   var ld = document.getElementById("loader");
   if (ld){ ld.style.opacity = "0"; setTimeout(function(){ ld.style.display = "none"; }, 420); }
 }
+/* R8 首屏加速：当前卡片那张图一到就撤加载条（约 150KB），
+   其余模板图在后台继续下（892KB，换卡/图鉴才用），不再阻塞首屏。 */
+var HERO_ID = TPL;
 TPL_LIBRARY.forEach(function(t){
   var im = new Image();
-  im.onload = function(){ PL_DONE++; updateLoader(); };
-  im.onerror = function(){ PL_DONE++; updateLoader(); };
+  im.onload = function(){
+    PL_DONE++; updateLoader();
+    if (t.id === HERO_ID) hideLoader();
+  };
+  im.onerror = function(){
+    PL_DONE++; updateLoader();
+    if (t.id === HERO_ID) hideLoader();
+  };
   im.src = t.src; IMGS[t.id] = im;
 });
-setTimeout(hideLoader, 6000);   // 弱网兜底
+setTimeout(hideLoader, 2500);   // 弱网兜底：2.5 秒无论如何放行
 
 /* ============ 音乐（WebAudio 现场合成） ============ */
 var NOTES = {"C4":261.63,"D4":293.66,"E4":329.63,"F4":349.23,"G4":392.00,"A4":440.00,"B4":493.88,
@@ -736,6 +782,7 @@ function wish(){
   var isNew = !GK.got["t"+t.id];
   GK.got["t"+t.id] = 1;
   saveGK();
+  pushRecent(t.id, r);
   applyPair(t.id, w.t);
   showGacha([{ tpl:t, word:w, r:r, isNew:isNew, boosted:boosted }]);
   renderPity();
@@ -1139,11 +1186,162 @@ function closeReceive(){
   document.getElementById("receive").classList.remove("show");
 }
 
+
+/* ============ R8 抽卡记录（最近 6 抽，点一下取回） ============ */
+var RECENT = [];
+try { RECENT = JSON.parse(localStorage.getItem("xmasRecent") || "[]") || []; } catch(e){ RECENT = []; }
+if (!Array.isArray(RECENT)) RECENT = [];
+function pushRecent(id, r){
+  RECENT.unshift({ t:id, r:r });
+  RECENT = RECENT.slice(0, 6);
+  try { localStorage.setItem("xmasRecent", JSON.stringify(RECENT)); } catch(e){}
+  renderRecent();
+}
+function renderRecent(){
+  var box = document.getElementById("recent");
+  if (!box) return;
+  var h = "";
+  RECENT.forEach(function(x){
+    var t = themeOf(x.t);
+    if (!t) return;
+    h += '<img class="recent-img" src="' + t.src + '" alt="' + t.name +
+         '" title="' + t.name + '" onclick="pickRecent(\'' + x.t + '\')">';
+  });
+  box.innerHTML = h ? ('<span class="recent-title">🕐 最近抽到</span>' + h) : "";
+}
+function pickRecent(id){
+  var t = themeOf(id);
+  if (!t) return;
+  var pool = filteredGreetings().filter(function(w){ return w.sc === t.sc; });
+  if (!pool.length) pool = filteredGreetings();
+  applyPair(id, pool[randPick(pool.length)].t);
+  if (typeof renderPity === "function") renderPity();
+}
+
+/* ============ R8 图鉴收藏海报（把「集齐」变成可传播的图） ============ */
+function pStars(n){ var s=""; for (var i=0;i<n;i++) s += "★"; return s; }
+function pRound(g,x,y,w,h,r){
+  g.beginPath();
+  g.moveTo(x+r,y); g.lineTo(x+w-r,y); g.quadraticCurveTo(x+w,y,x+w,y+r);
+  g.lineTo(x+w,y+h-r); g.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  g.lineTo(x+r,y+h); g.quadraticCurveTo(x,y+h,x,y+h-r);
+  g.lineTo(x,y+r); g.quadraticCurveTo(x,y,x+r,y); g.closePath();
+}
+function pCover(g,im,x,y,w,h){
+  var iw = im.naturalWidth, ih = im.naturalHeight;
+  var sc = Math.max(w/iw, h/ih);
+  var dw = iw*sc, dh = ih*sc;
+  g.drawImage(im, x + (w-dw)/2, y + (h-dh)/2, dw, dh);
+}
+function closePoster(){ document.getElementById("poster").classList.remove("show"); }
+function makePoster(){
+  STATS.poster = (STATS.poster || 0) + 1; saveStats();
+  var missing = TPL_LIBRARY.filter(function(t){ return GK.got["t"+t.id]; })
+    .filter(function(t){
+      var im = IMGS[t.id];
+      return !(im && im.complete && im.naturalWidth);
+    });
+  if (missing.length){
+    var left = missing.length;
+    missing.forEach(function(t){
+      var im = new Image();
+      im.onload = im.onerror = function(){ if (--left === 0) drawPoster(); };
+      im.src = t.src; IMGS[t.id] = im;
+    });
+    return;
+  }
+  drawPoster();
+}
+function drawPoster(){
+  var W = 750, H = 1000;
+  var c = document.createElement("canvas"); c.width = W; c.height = H;
+  var g = c.getContext("2d");
+  var bg = g.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, "#13291e"); bg.addColorStop(0.6, "#0d1b15"); bg.addColorStop(1, "#09120e");
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  g.textAlign = "center";
+
+  g.font = "30px serif"; g.fillStyle = "rgba(255,215,130,.85)";
+  g.fillText("❄ ─── ✦ ─── ❄", 375, 96);
+  g.font = "600 46px 'Kaiti SC','STKaiti','KaiTi',serif"; g.fillStyle = "#fff3d6";
+  g.fillText("我的圣诞贺卡图鉴", 375, 170);
+
+  var got = 0;
+  TPL_LIBRARY.forEach(function(t){ if (GK.got["t"+t.id]) got++; });
+  var all = got === TPL_LIBRARY.length;
+  g.font = "26px sans-serif"; g.fillStyle = "rgba(255,255,255,.7)";
+  g.fillText("已点亮 " + got + " / " + TPL_LIBRARY.length +
+    (all ? "  ·  🏆 全图鉴达成" : "  ·  意心贺卡"), 375, 220);
+
+  var cols = 3, cw = 196, ch = 214, gapX = 24, gapY = 78;
+  var x0 = (W - (cols*cw + (cols-1)*gapX)) / 2, y0 = 268;
+  TPL_LIBRARY.forEach(function(t, i){
+    var cx = x0 + (i % cols) * (cw + gapX);
+    var cy = y0 + Math.floor(i / cols) * (ch + gapY);
+    var has = !!GK.got["t" + t.id];
+    var im = IMGS[t.id];
+    g.save();
+    pRound(g, cx, cy, cw, ch, 16); g.clip();
+    if (has && im && im.complete && im.naturalWidth){
+      pCover(g, im, cx, cy, cw, ch);
+    } else {
+      g.fillStyle = "#1b2b23"; g.fillRect(cx, cy, cw, ch);
+    }
+    g.restore();
+    if (!has){
+      g.fillStyle = "rgba(6,12,10,.7)"; 
+      g.save(); pRound(g, cx, cy, cw, ch, 16); g.clip();
+      g.fillRect(cx, cy, cw, ch); g.restore();
+      g.textAlign = "center"; g.font = "56px serif"; g.fillStyle = "rgba(255,255,255,.28)";
+      g.fillText("？", cx + cw/2, cy + ch/2 + 20);
+    }
+    g.textAlign = "center";
+    g.font = "600 22px sans-serif";
+    g.fillStyle = has ? "#ffe3a3" : "rgba(255,255,255,.32)";
+    g.fillText(has ? t.name : "未点亮", cx + cw/2, cy + ch + 32);
+    g.font = "18px sans-serif";
+    g.fillStyle = has ? "#f5c342" : "rgba(255,255,255,.2)";
+    g.fillText(has ? pStars(t.r) : "☆☆☆", cx + cw/2, cy + ch + 58);
+  });
+
+  /* 底部：回流二维码 + 一句号召 */
+  var link = location.origin + location.pathname + (location.search || "");
+  if (typeof qrcode === "function") drawQr(g, link, 66, 848, 104);
+  g.textAlign = "left";
+  g.font = "600 26px sans-serif"; g.fillStyle = "#ffe3a3";
+  g.fillText("扫码抽一张，送给你想送的人", 196, 894);
+  g.font = "20px sans-serif"; g.fillStyle = "rgba(255,255,255,.55)";
+  g.fillText("意心贺卡 · 节日贺卡生成器 · " + YEAR, 196, 930);
+  g.textAlign = "center"; g.font = "20px sans-serif"; g.fillStyle = "rgba(255,255,255,.35)";
+  g.fillText("集齐 " + TPL_LIBRARY.length + " 款召唤圣诞老人 🎅", 375, 972);
+
+  document.getElementById("posterImg").src = c.toDataURL("image/png");
+  document.getElementById("poster").classList.add("show");
+}
+
+/* ============ R8 首次进入引导（只弹一次） ============ */
+function initFirstTip(){
+  try {
+    if (localStorage.getItem("xmasInitTip")) return;
+    localStorage.setItem("xmasInitTip", "1");
+  } catch(e){ return; }
+  var el = document.getElementById("firstTip");
+  if (!el) return;
+  el.classList.add("show");
+  setTimeout(function(){ el.classList.remove("show"); }, 9000);
+}
+function hideFirstTip(){
+  var el = document.getElementById("firstTip");
+  if (el) el.classList.remove("show");
+}
+
 /* ============ 初始化（必须放最后：依赖上方全部函数与状态） ============ */
 renderCats();
 renderWords();
 renderTpls();
 renderPity();
+renderRecent();
+initFirstTip();
 document.getElementById("verInfo").onclick = verInfoTap;
 document.getElementById("wishBtn").textContent = MODE === "random" ? "🎲 换一张" : "🎴 更换卡片";
 if (MODE === "random"){
