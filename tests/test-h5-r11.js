@@ -38,7 +38,7 @@ ok(/三连非酋/.test(html), '连续 3★ 有安慰提示');
 ok(/lk\.emo \+ lk\.name \+ ' 手气的卡/.test(html), '收卡页展示对方手气称号');
 ok(/我抽到 ".{0,4}\+ LUCK\[lastPullR\]\.name/.test(html) || /LUCK\[lastPullR\]\.emo/.test(html), '分享文案带上手气称号');
 ok(/renderStickers\(\);/.test(html), '初始化时渲染贴纸行');
-ok(/var VERSION = "v1\.1\.3"/.test(html), '版本号 v1.1.3');
+ok(/var VERSION = "v1\.1\.[4-9]"/.test(html), '版本号已推进（R12 起 ≥v1.1.4）');
 
 console.log('== 4. 不破坏既有功能 ==');
 ok(box.GW('elder').indexOf('您') >= 0, '长辈祝福仍用「您」');
