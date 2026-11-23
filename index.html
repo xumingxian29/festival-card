@@ -9,7 +9,7 @@
 <meta property="og:image" content="https://christmas-card-demo.app.workbuddy.host/tpl/tree.jpg">
 <meta name="description" content="抽一张冬日限定圣诞贺卡，30 秒做一张送给朋友。">
 <!--
-  心意贺卡 v1.1.3 · 2026-11-23（引流优化 R1-R11：裂变闭环/每日加成/悬念拆卡/图鉴海报/首屏加速/随机祝福/搞怪彩蛋/手气称号/卡面贴纸）
+  心意贺卡 v1.1.4 · 2026-11-23（引流优化 R1-R12：裂变闭环/悬念拆卡/图鉴海报/首屏加速/随机祝福/搞怪彩蛋/手气称号/卡面贴纸/一键配文）
     P0 传播闭环：
       ① 收卡链接：#g= 编码模板+祝福，收卡人打开是「拆贺卡」页，可一键做自己的
       ② 成品图右下角二维码（个人化收卡链接）+「扫码也做一张」
@@ -333,6 +333,14 @@
     background:#fff; font-size:20px; line-height:1; cursor:pointer; color:#8a7f72;
     display:flex; align-items:center; justify-content:center; padding:0; }
   .stick-btn.sel { border-color:#b3282d; box-shadow:0 0 0 2px rgba(179,40,45,.18); background:#fff7f4; }
+
+  /* ===== R12 降低分享摩擦 + 首屏精简 ===== */
+  .custom-toggle { display:block; margin:12px auto 0; padding:6px 10px; background:none; border:none;
+    font-size:12px; color:#8a7f72; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+  .btn-caption { background:#f5c342; color:#3a2b18; }
+  .howto { display:inline-block; margin-top:6px; font-size:11.5px; color:#8a7f72;
+    text-decoration:underline; cursor:pointer; }
+  .back-tip { margin-top:10px; font-size:11.5px; color:#8a7f72; text-align:center; line-height:1.6; }
 </style>
 </head>
 <body>
@@ -360,7 +368,8 @@
   </div>
   <p class="pity" id="pityTip"></p>
   <div class="recent" id="recent"></div>
-  <div class="custom">
+  <button class="custom-toggle" id="customToggle" onclick="toggleCustom()">✏️ 想自己写一句祝福？点这里</button>
+  <div class="custom" id="customBox" style="display:none">
     <input id="myword" maxlength="40" placeholder="想自己写一句祝福？写在这里（可选）">
     <button class="use" onclick="useCustom()">用这句</button>
   </div>
@@ -390,10 +399,12 @@
     <p class="hint" id="hint"></p>
     <div class="row">
       <button class="btn btn-share" id="shareBtn" onclick="shareImg()">📱 直接分享</button>
-      <button class="btn btn-copy" onclick="copyLink()">🔗 复制收卡链接</button>
+      <button class="btn btn-caption" onclick="copyCaption()">📋 复制配文（带链接）</button>
+      <button class="btn btn-copy" onclick="copyLink()">🔗 只复制链接</button>
       <button class="btn btn-redo" onclick="closeMask()">再做一张</button>
-      <button class="btn btn-save" onclick="saveTip()">怎么发朋友？</button>
     </div>
+    <p class="back-tip">明天首抽必出 4★+ · 连抽 7 天必得 5★，记得回来 🎄<br>
+      <a class="howto" onclick="saveTip()">不知道怎么发？看这里</a></p>
   </div>
 </div>
 
@@ -428,17 +439,17 @@
 <div class="first-tip" id="firstTip">👆 点「做成贺卡」生成图片，能存相册也能发朋友</div>
 
 <footer>
-  <span id="verInfo">v1.1.3 可点原型 · 2026-11-23</span><br>
+  <span id="verInfo">v1.1.4 可点原型 · 2026-11-23</span><br>
   全程零上传 · 零账号 ｜ 音乐为现场合成，保存的图片不含音频<br>
   <span id="modeTag"></span>
 </footer>
 
 <script src="library.js"></script>
 <script>
-var VERSION = "v1.1.3";
+var VERSION = "v1.1.4";
 
 /* ============ ⑪ 轻量埋点（纯本地，连点版本号 3 次导出） ============ */
-var STATS = { open:0, receive:0, wish:0, gen:0, share:0, copylink:0, joker:0 };
+var STATS = { open:0, receive:0, wish:0, gen:0, share:0, copylink:0, caption:0, joker:0 };
 try {
   var _st = JSON.parse(localStorage.getItem("xmasStats") || "null");
   if (_st) STATS = _st;
@@ -1113,9 +1124,14 @@ function renderCard(tpl, text, receiveLink){
   g.fillText(theme.big || "心意满满", 375, 610);
   g.restore();
 
-  /* 祝福语 */
-  var lines = wrap(g, text, "600 34px 'Kaiti SC','STKaiti','KaiTi',serif", 560);
-  var LH = 54, blockH = lines.length * LH;
+  /* 祝福语（R12：字多时自动缩号，避免顶到主标题） */
+  var fsz = 34, LH = 54, maxW = 560;
+  var lines = wrap(g, text, "600 " + fsz + "px 'Kaiti SC','STKaiti','KaiTi',serif", maxW);
+  if (lines.length > 3){
+    fsz = 28; LH = 44; maxW = 610;
+    lines = wrap(g, text, "600 " + fsz + "px 'Kaiti SC','STKaiti','KaiTi',serif", maxW);
+  }
+  var blockH = lines.length * LH;
   var top = 740 - blockH/2 + 40;
 
   g.font = "30px serif"; g.fillStyle = "rgba(255,215,130,.9)";
@@ -1123,7 +1139,7 @@ function renderCard(tpl, text, receiveLink){
 
   g.save();
   g.shadowColor = "rgba(0,0,0,.6)"; g.shadowBlur = 10; g.shadowOffsetY = 2;
-  g.font = "600 34px 'Kaiti SC','STKaiti','KaiTi',serif";
+  g.font = "600 " + fsz + "px 'Kaiti SC','STKaiti','KaiTi',serif";
   g.fillStyle = theme.sub;
   lines.forEach(function(l,i){ g.fillText(l, 375, top + i*LH); });
   g.restore();
@@ -1200,13 +1216,13 @@ function setHint(){
   shareBtn.style.display = canShare ? "" : "none";
   if (isWeChat()){
     hint.innerHTML = "<b>微信里两步走：</b>① <b>长按图片</b> → 保存到相册；② 回到聊天点「+」→ 相册 → 发这张图。<br>" +
-      "或者点 <b>🔗 复制收卡链接</b>，把链接发出去——朋友点开能<b>直接拆开你这张卡</b>，还能一键做自己的。" +
-      "<small>图片转发永远好使；链接转发能让朋友也来做一张。</small>";
+      "懒得想话？点 <b>📋 复制配文</b>，一句话和链接都替你写好了，粘进聊天框直接发。" +
+      "<small>朋友点开能直接拆你这张卡，还能一键做自己的。</small>";
   } else if (canShare){
     hint.innerHTML = "点上方 <b>📱 直接分享</b> 调起系统分享；或 <b>长按图片</b> 保存后发图。" +
-      "<br><b>🔗 复制收卡链接</b> 发出去，朋友点开能拆你的卡、也能做自己的。";
+      "<br><b>📋 复制配文</b> 会连链接一起复制，粘到微信就能发。";
   } else {
-    hint.innerHTML = "<b>长按图片</b>保存到相册再发图；或点 <b>🔗 复制收卡链接</b> 把链接发给朋友——<br>朋友点开能直接拆开你这张贺卡 🎁";
+    hint.innerHTML = "<b>长按图片</b>保存到相册再发图；或点 <b>📋 复制配文</b>——<br>一句话 + 链接都写好了，朋友点开能直接拆卡 🎁";
   }
 }
 function isWeChat(){ return /MicroMessenger/i.test(navigator.userAgent); }
@@ -1258,6 +1274,53 @@ function copyLink(){
   if (ok) done();
   else prompt("复制下面的收卡链接发给朋友：", lastLink);
 }
+/* R12 一键复制配文：一句话 + 链接，粘进微信聊天框就能发（省掉自己想话的摩擦） */
+function buildCaption(){
+  var base = (typeof CAPTIONS !== "undefined" && CAPTIONS.length)
+    ? CAPTIONS[randPick(CAPTIONS.length)] : "给你做了一张贺卡 🎄";
+  if (lastPullR && typeof LUCK !== "undefined" && LUCK[lastPullR]){
+    base = base.replace("给你做了一张", "抽到 " + LUCK[lastPullR].emo + LUCK[lastPullR].name + " 卡，给你做了一张");
+  }
+  return base + "\n" + (lastLink || "");
+}
+function copyCaption(){
+  if (!lastLink) return;
+  STATS.caption = (STATS.caption || 0) + 1; saveStats();
+  var text = buildCaption();
+  var done = function(){ alert("配文已复制 ✅\n直接粘到微信聊天框发出去就行——\n\n" + text); };
+  var ok = false;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text);
+      ok = true;
+    }
+  } catch(e){}
+  if (!ok){
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+    } catch(e){}
+  }
+  if (ok) done();
+  else prompt("复制下面的配文发给朋友：", text);
+}
+function toggleCustom(){
+  var box = document.getElementById("customBox");
+  var btn = document.getElementById("customToggle");
+  if (!box) return;
+  var show = box.style.display === "none";
+  box.style.display = show ? "flex" : "none";
+  if (btn) btn.textContent = show ? "✏️ 收起自定义" : "✏️ 想自己写一句祝福？点这里";
+  if (show){
+    var inp = document.getElementById("myword");
+    if (inp) setTimeout(function(){ try { inp.focus(); } catch(e){} }, 60);
+  }
+}
 function closeMask(){ document.getElementById("mask").classList.remove("show"); }
 function saveTip(){
   if (isWeChat()){
@@ -1299,8 +1362,8 @@ function openReceived(){
       '<img src="' + t.src + '" alt="">' +
     '</div>' +
     '<div class="rv-btns">' +
-      '<button class="rv-save" onclick="saveReceived()">💾 保存 / 分享这张</button>' +
-      '<button class="rv-mine" onclick="mineOwn()">🎁 替 TA 回赠一张</button>' +
+      '<button class="rv-mine" onclick="mineOwn()">🎴 我也抽一张，看手气</button>' +
+      '<button class="rv-save" onclick="saveReceived()">💾 先保存这张</button>' +
     '</div>';
 }
 function saveReceived(){
