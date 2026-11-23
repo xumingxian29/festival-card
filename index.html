@@ -302,6 +302,10 @@
   .recent-img { width:46px; height:60px; object-fit:cover; border-radius:8px;
     border:1px solid rgba(0,0,0,.08); flex:0 0 auto; }
 
+  /* ===== R9 随机祝福说明条 ===== */
+  .rnd-note { font-size:12px; line-height:1.7; color:#8d8271; background:#faf7f1;
+    border:1px dashed #e3dccd; border-radius:12px; padding:10px 14px; text-align:left; }
+
   /* ===== R8 首次进入引导 ===== */
   .first-tip { position:fixed; left:50%; bottom:18px; transform:translate(-50%,20px);
     max-width:88%; padding:10px 18px; font-size:12px; line-height:1.5; color:#fff;
@@ -352,7 +356,7 @@
   <div class="tpl-preview" id="tplPreview"></div>
   <h2>送给谁 <em>过滤一下，祝福更得体</em></h2>
   <div class="catrow" id="catRow"></div>
-  <h2>选句祝福 <em>都是现成的，点一句就换成这句</em></h2>
+  <h2>祝福语 <em>每次随机生成一句圣诞祝福，想换就再抽一张</em></h2>
   <div class="words" id="words"></div>
   <button class="gen" onclick="generate()">用这套做贺卡 →</button>
 </section>
@@ -442,6 +446,19 @@ var TPL = TPL_LIBRARY[randPick(TPL_LIBRARY.length)].id;
 var word = 0;
 var customText = null;
 var catFilter = "all";   // 送给谁：all / love / friend / elder / mate
+
+/* ============ R9 祝福语随机生成（只出圣诞主题，不再给选择） ============ */
+var RANDOM_GREET = true;
+var currentGreet = (typeof genWish === "function") ? genWish("all") : "";
+/* 抽一句祝福：70% 现场生成，30% 用精选圣诞句，避免连续抽卡重复 */
+function pickGreet(t){
+  if (!RANDOM_GREET) return drawFrom(filteredGreetings(catFilter), 3).t;
+  if (Math.random() < 0.7) return genWish(catFilter);
+  var pool = filteredGreetings(catFilter).filter(function(x){ return x.sc === "xmas"; });
+  if (!pool.length) pool = filteredGreetings(catFilter);
+  if (!pool.length) return genWish(catFilter);
+  return drawFrom(pool, (t && t.r) || 3).t;
+}
 var GREETING_LIBRARY = GREETING_LIBRARY || [];
 
 /* ============ ⑬ 加载进度条 + 模板图预加载 ============ */
@@ -619,6 +636,15 @@ function renderCats(){
 function renderWords(){
   var box = document.getElementById("words");
   box.innerHTML = "";
+  if (RANDOM_GREET){
+    /* 只有圣诞主题、随机生成：换「送给谁」= 换语气，重新生成一句 */
+    currentGreet = genWish(catFilter);
+    customText = null;
+    box.innerHTML = '<div class="rnd-note">🎲 每次抽卡 / 换卡都会随机生成一句圣诞祝福，' +
+      '点上面卡片里的祝福语可以手动改字</div>';
+    renderHero();
+    return;
+  }
   var scene = sceneGreeting();
   if (scene){
     var tag = document.createElement("div");
@@ -639,8 +665,7 @@ function renderHero(){
   document.getElementById("verTag").textContent = t.ver + " · " + (t.pool === "xmas" ? "冬日限定" : "今日限定");
   document.getElementById("cardTitle").textContent = t.prefix + t.name;
   document.getElementById("heroCard").src = t.src;
-  var chips = [].slice.call(document.querySelectorAll("#words .word"));
-  var line = chips[word] ? chips[word].textContent : (filteredGreetings()[0] || {t:""}).t;
+  var line = currentGreet || (filteredGreetings()[0] || {t:""}).t;
   document.getElementById("greetLine").textContent = line.replace(/^✏️ /, "");
 }
 function addWord(box, text, isScene){
@@ -663,10 +688,7 @@ function useCustom(){
 }
 function applyCustom(v){
   customText = v;
-  renderWords();
-  var all = [].slice.call(document.querySelectorAll("#words .word"));
-  word = all.length - 1;
-  all[word].classList.add("sel");
+  currentGreet = v;
   renderHero();
 }
 /* ⑩ 首页祝福语点击微调 */
@@ -775,10 +797,7 @@ function wish(){
     var alt = TPL_LIBRARY.filter(function(x){ return x.r === r && x.id !== TPL; });
     if (alt.length) t = alt[randPick(alt.length)];
   }
-  var pool = filteredGreetings().filter(function(w){ return w.sc === t.sc; });
-  if (!pool.length) pool = filteredGreetings().filter(function(w){ return w.sc === "gen"; });
-  if (!pool.length) pool = filteredGreetings();
-  var w = drawFrom(pool, r);
+  var w = { t: pickGreet(t) };
   var isNew = !GK.got["t"+t.id];
   GK.got["t"+t.id] = 1;
   saveGK();
@@ -792,14 +811,11 @@ function plainReroll(){
   var pool = TPL_LIBRARY.filter(function(t){ return t.id !== TPL; });
   TPL = pool[randPick(pool.length)].id;
   var cur = TPL_LIBRARY.filter(function(t){ return t.id === TPL; })[0] || {};
-  var gl = filteredGreetings().filter(function(w){ return w.sc === cur.sc; });
-  if (!gl.length) gl = filteredGreetings().filter(function(w){ return w.sc === "gen"; });
-  if (!gl.length) gl = filteredGreetings();
-  var w = gl[randPick(gl.length)];
-  applyPair(TPL, w.t);
+  applyPair(TPL, pickGreet(cur));
 }
 function applyPair(tplId, wordText){
   TPL = tplId;
+  if (wordText) currentGreet = wordText;
   var chips = [].slice.call(document.querySelectorAll("#words .word"));
   word = 0;
   for (var i=0;i<chips.length;i++){
@@ -1056,10 +1072,7 @@ function generateFrom(tplId, text){
   document.getElementById("mask").classList.add("show");
 }
 function generate(){
-  var text;
-  var all = [].slice.call(document.querySelectorAll("#words .word"));
-  if (customText && all[word] && all[word].textContent.indexOf("✏️") === 0) text = customText;
-  else text = all[word] ? all[word].textContent : (filteredGreetings()[0] || {t:"圣诞快乐"}).t;
+  var text = currentGreet || customText || (filteredGreetings()[0] || {t:"圣诞快乐"}).t;
   if (text.indexOf("✏️ ") === 0) text = text.slice(2);
   generateFrom(TPL, text);
 }
@@ -1212,9 +1225,7 @@ function renderRecent(){
 function pickRecent(id){
   var t = themeOf(id);
   if (!t) return;
-  var pool = filteredGreetings().filter(function(w){ return w.sc === t.sc; });
-  if (!pool.length) pool = filteredGreetings();
-  applyPair(id, pool[randPick(pool.length)].t);
+  applyPair(id, pickGreet(t));
   if (typeof renderPity === "function") renderPity();
 }
 

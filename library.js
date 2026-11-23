@@ -104,7 +104,56 @@ var GREETING_LIBRARY = [
 var XMAS_ONLY = true;
 if (XMAS_ONLY) {
   TPL_LIBRARY = TPL_LIBRARY.filter(function(t){ return t.pool === "xmas"; });
-  GREETING_LIBRARY = GREETING_LIBRARY.filter(function(g){
-    return g.sc === "xmas" || g.sc === "gen";
-  });
+  /* R9：祝福语只留圣诞主题（sc === "xmas"），通用句/生日/表白/道歉/跨年/新年全部隐藏 */
+  GREETING_LIBRARY = GREETING_LIBRARY.filter(function(g){ return g.sc === "xmas"; });
+}
+
+/* ============================================================
+   R9 圣诞祝福随机生成器
+   结构：[开头] + [主体] + [尾巴]。主体里不带「你/您」等指代，
+   任意组合都通顺；长辈档自动切「您」并换更稳重的尾巴。
+   只产出圣诞语境，不碰生日/表白/道歉等主题。
+   ============================================================ */
+var GEN_WISH = {
+  head: ["愿你", "希望你", "愿这个冬天你", "圣诞快乐，愿你", "圣诞这一天愿你", "愿这个圣诞你"],
+  headElder: ["愿您", "希望您", "愿这个冬天您", "圣诞快乐，愿您", "圣诞这一天愿您", "祝您"],
+  body: [
+    "被热可可和暖烘烘的房间包围",
+    "收到的每份礼物都正好是想要的",
+    "身边有人陪着一起看雪",
+    "把这一年的疲惫都留在雪地里",
+    "笑点变低，好运变多",
+    "想吃什么就吃什么，想睡就睡",
+    "所有悄悄许下的心愿都实现",
+    "在灯火里被人好好惦记",
+    "遇到的人都温柔，遇到的事都顺利",
+    "每天都有一个小小的惊喜",
+    "把想说的话都说得出口",
+    "把日子过得亮晶晶"
+  ],
+  tail: {
+    all:    ["🎄", "✨", "", "，圣诞快乐 🎄"],
+    friend: ["，圣诞快乐 🎄", "，圣诞快乐，一起吃火锅 🍲", "🎄"],
+    mate:   ["，事事顺利 🎄", "，圣诞快乐 🎄", "🎄"],
+    love:   ["，很想你 🎄", "，抱一下 ✨", "🎄"],
+    elder:  ["，祝您身体康健 🎄", "，平安喜乐 🎄", "🎄"]
+  }
+};
+function genRand(n){ return Math.floor(Math.random() * n); }
+function genWish(cat){
+  var isElder = (cat === "elder");
+  var heads = isElder ? GEN_WISH.headElder : GEN_WISH.head;
+  var tails = GEN_WISH.tail[cat] || GEN_WISH.tail.all;
+  var h = heads[genRand(heads.length)];
+  var b = GEN_WISH.body[genRand(GEN_WISH.body.length)];
+  var t = tails[genRand(tails.length)];
+  if (h.indexOf("圣诞") >= 0 && t.indexOf("圣诞") >= 0) t = "🎄";
+  /* 长辈档开头已经是「祝您」，尾巴不再重复「祝您」 */
+  if (h.indexOf("祝您") === 0 && t.indexOf("祝您") >= 0) t = "，平安喜乐 🎄";
+  /* 纯 emoji 尾巴前面补一个空格，避免「看雪🎄」挤在一起 */
+  var c0 = t ? Array.prototype.slice.call(t)[0] : "";
+  if (c0 && "， ".indexOf(c0) < 0 && "🎄🎁❄️✨🍲".indexOf(c0) >= 0) t = " " + t;
+  var line = h + b + t;
+  if (line.indexOf("圣诞") < 0 && !/[🎄🎁❄️✨]/.test(line)) line += " 🎄";
+  return line;
 }

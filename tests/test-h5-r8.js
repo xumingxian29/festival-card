@@ -185,5 +185,29 @@ try { api.wish(); } catch (e) { wishErr = e; }
 ok(!wishErr, 'wish() 无异常' + (wishErr ? '：' + wishErr.message : ''));
 ok(R().length === 6, '抽卡后写入记录条');
 
-console.log('\n结果: ' + (fails === 0 ? '全部通过 ✅' : fails + ' 项失败 ❌'));
+/* ---------- 7. 随机祝福生成（R9） ---------- */
+console.log('== 7. \u795d\u798f\u8bed\u968f\u673a\u751f\u6210\uff08R9\uff09==');
+const libBox = {};
+new Function('window', lib + ';window.G=GREETING_LIBRARY;window.GW=genWish;')(libBox);
+const G = libBox.G, GW = libBox.GW;
+ok(G.every(g => g.sc === 'xmas'), '\u7cbe\u9009\u795d\u798f\u5168\u90e8\u4e3a\u5723\u8bde\u573a\u666f\uff08' + G.length + ' \u6761\uff09');
+ok(G.length >= 15, '\u7cbe\u9009\u5723\u8bde\u53e5\u4e0d\u5c11\u4e8e 15 \u6761');
+const seen = new Set();
+let badLen = 0, noXmas = 0, leak = 0;
+for (let i = 0; i < 300; i++) {
+  const t = GW(['all', 'elder', 'love', 'friend', 'mate'][i % 5]);
+  seen.add(t);
+  if (t.length > 40) badLen++;
+  if (!/\u5723\u8bde|\uD83C\uDF84|\uD83C\uDF81|\u2744|\u2728/.test(t)) noXmas++;
+  if (/\u751f\u65e5\u5feb\u4e50|\u5bf9\u4e0d\u8d77|\u65b0\u5e74|\u8de8\u5e74|\u8003\u8bd5/.test(t)) leak++;
+}
+ok(badLen === 0, '300 \u6b21\u751f\u6210\u957f\u5ea6\u5747 \u2264 40 \u5b57');
+ok(noXmas === 0, '300 \u6b21\u751f\u6210\u90fd\u5e26\u5723\u8bde\u6807\u8bb0');
+ok(leak === 0, '\u65e0\u975e\u5723\u8bde\u4e3b\u9898\u8d8a\u754c\uff08\u751f\u65e5/\u9053\u6b49/\u65b0\u5e74\uff09');
+ok(seen.size > 100, '300 \u6b21\u53bb\u91cd > 100 \u53e5\uff08\u5b9e\u6d4b ' + seen.size + '\uff09');
+const elderAll = [];
+for (let i = 0; i < 50; i++) elderAll.push(GW('elder'));
+ok(elderAll.every(t => t.indexOf('\u60a8') >= 0), '\u957f\u8f88\u6863\u5168\u90e8\u7528\u300c\u60a8\u300d');
+
+console.log('\n\u7ed3\u679c: ' + (fails === 0 ? '全部通过 ✅' : fails + ' 项失败 ❌'));
 process.exit(fails === 0 ? 0 : 1);
