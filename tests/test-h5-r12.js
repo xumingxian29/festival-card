@@ -56,7 +56,7 @@ ok(/onclick="mineOwn\(\)"[\s\S]{0,80}我也抽一张/.test(html), '主按钮直�
 console.log('== 6. 长句自适字号 ==');
 ok(/var fsz = 34/.test(html) && /if \(lines\.length > 3\)/.test(html), '超过 3 行自动缩到 28px');
 ok(/g\.font = "600 " \+ fsz \+ "px/.test(html), '绘制时使用自适应字号');
-ok(/var VERSION = "v1\.1\.4"/.test(html), '版本号 v1.1.4');
+ok(/var VERSION = "v1\.1\.[5-9]"/.test(html), '版本号已推进（R13 起 ≥v1.1.5）');
 
 console.log('\n结果: ' + (fails === 0 ? '全部通过 ✅' : fails + ' 项失败 ❌'));
 process.exit(fails === 0 ? 0 : 1);
