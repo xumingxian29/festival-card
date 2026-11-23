@@ -252,12 +252,8 @@ var STICKERS = [
 ];
 
 function genRand(n){ return Math.floor(Math.random() * n); }
-function genWish(cat){
-  /* R10 搞怪路径：30% 概率直出沙雕整句（长辈档不参与） */
-  var jp = JOKE_WISH[cat];
-  if (jp && jp.length && Math.random() < 0.3) {
-    return jp[genRand(jp.length)];
-  }
+function genWishOnce(cat){
+  /* 纯三段式生成；搞怪整句由 genWish 统一调度，避免双重概率叠加 */
   var isElder = (cat === "elder");
   var heads = isElder ? GEN_WISH.headElder : GEN_WISH.head;
   var tails = GEN_WISH.tail[cat] || GEN_WISH.tail.all;
@@ -272,5 +268,19 @@ function genWish(cat){
   if (c0 && "， ".indexOf(c0) < 0 && "🎄🎁❄️✨🍲".indexOf(c0) >= 0) t = " " + t;
   var line = h + b + t;
   if (line.indexOf("圣诞") < 0 && !/[🎄🎁❄️✨]/.test(line)) line += " 🎄";
+  return line;
+}
+
+/* R15 去重壳：连抽时避免连续两次同一句（两端同源逻辑） */
+var _lastWish = "";
+function genWish(cat){
+  var jp = JOKE_WISH[cat];
+  var useJoke = jp && jp.length && Math.random() < 0.3;   /* 搞怪判定只做一次，重试不放大概率 */
+  var line = "";
+  for (var guard = 0; guard < 5; guard++){
+    line = useJoke ? jp[genRand(jp.length)] : genWishOnce(cat);
+    if (line !== _lastWish) break;
+  }
+  _lastWish = line;
   return line;
 }

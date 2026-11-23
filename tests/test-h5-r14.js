@@ -64,7 +64,7 @@ const box = {};
 new Function('window', lib + ';window.STK=STICKERS;window.GW=genWish;')(box);
 ok(box.STK.length >= 5 && box.GW('elder').indexOf('您') >= 0, '素材库与长辈祝福未被改动');
 ok(/function rerollGreet\(/.test(html) && /function copyCaption\(/.test(html), 'R12/R13 功能仍在');
-ok(/var VERSION = "v1\.1\.6"/.test(html), '版本号 v1.1.6');
+ok(/var VERSION = "v1\.1\.[7-9]"/.test(html), '版本号已推进（R15 起 ≥v1.1.7）');
 
 console.log('\n结果: ' + (fails === 0 ? '全部通过 ✅' : fails + ' 项失败 ❌'));
 process.exit(fails === 0 ? 0 : 1);
