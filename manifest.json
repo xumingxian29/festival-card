@@ -1,0 +1,13 @@
+{
+  "name": "心意贺卡",
+  "short_name": "心意贺卡",
+  "description": "抽一张冬日限定圣诞贺卡，30 秒做一张送给朋友。",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#faf7f1",
+  "theme_color": "#0e4d33",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

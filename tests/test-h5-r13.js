@@ -69,7 +69,7 @@ ok(/prefers-reduced-motion: reduce/.test(html), '尊重系统「减少动效」�
 ok(/onerror="this\.classList\.add\('imgfail'\)"/.test(html), '首屏图加载失败会隐藏破图');
 ok(/fetchpriority="high"/.test(html), '首屏主图给了高优先级');
 ok(/decoding="async"/.test(html), '主图异步解码，不阻塞渲染');
-ok(/var VERSION = "v1\.1\.5"/.test(html), '版本号 v1.1.5');
+ok(/var VERSION = "v1\.1\.[6-9]"/.test(html), '版本号已推进（R14 起 ≥v1.1.6）');
 
 console.log('== 5. 既有链路未破坏 ==');
 ok(/function copyCaption\(/.test(html) && /function copyLink\(/.test(html), '分享相关函数仍在');

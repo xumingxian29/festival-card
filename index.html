@@ -8,8 +8,14 @@
 <meta property="og:description" content="点开拆卡，抽一张属于你的冬日限定贺卡；再抽一张送朋友 🎄">
 <meta property="og:image" content="https://christmas-card-demo.app.workbuddy.host/tpl/tree.jpg">
 <meta name="description" content="抽一张冬日限定圣诞贺卡，30 秒做一张送给朋友。">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<meta name="theme-color" content="#0e4d33">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="心意贺卡">
 <!--
-  心意贺卡 v1.1.5 · 2026-11-23（引流优化 R1-R13：裂变闭环/悬念拆卡/图鉴海报/首屏加速/随机祝福/搞怪彩蛋/手气称号/卡面贴纸/一键配文/接龙计数）
+  心意贺卡 v1.1.6 · 2026-11-23（引流优化 R1-R14：裂变闭环/悬念拆卡/图鉴海报/首屏加速/随机祝福/搞怪彩蛋/手气称号/卡面贴纸/一键配文/接龙计数/主屏化）
     P0 传播闭环：
       ① 收卡链接：#g= 编码模板+祝福，收卡人打开是「拆贺卡」页，可一键做自己的
       ② 成品图右下角二维码（个人化收卡链接）+「扫码也做一张」
@@ -448,14 +454,14 @@
 <div class="first-tip" id="firstTip">👆 点「做成贺卡」生成图片，能存相册也能发朋友</div>
 
 <footer>
-  <span id="verInfo">v1.1.5 可点原型 · 2026-11-23</span><br>
+  <span id="verInfo">v1.1.6 可点原型 · 2026-11-23</span><br>
   全程零上传 · 零账号 ｜ 音乐为现场合成，保存的图片不含音频<br>
   <span id="modeTag"></span>
 </footer>
 
 <script src="library.js"></script>
 <script>
-var VERSION = "v1.1.5";
+var VERSION = "v1.1.6";
 
 /* ============ ⑪ 轻量埋点（纯本地，连点版本号 3 次导出） ============ */
 var STATS = { open:0, receive:0, wish:0, gen:0, share:0, copylink:0, caption:0, joker:0 };
@@ -485,7 +491,12 @@ var MODE = "gacha";
 
 /* ============ 状态 ============ */
 function randPick(n){ return Math.floor(Math.random() * n); }
-var TPL = TPL_LIBRARY[randPick(TPL_LIBRARY.length)].id;
+/* R14 每日首发：当天默认展示按日期轮换的卡，制造「今天这张不一样」的回访理由 */
+var TODAY_TPL = (function(){
+  var d = new Date();
+  return TPL_LIBRARY[(d.getFullYear() * 372 + (d.getMonth() + 1) * 31 + d.getDate()) % TPL_LIBRARY.length].id;
+})();
+var TPL = TODAY_TPL;
 var word = 0;
 var customText = null;
 var catFilter = "all";   // 送给谁：all / love / friend / elder / mate
@@ -718,7 +729,8 @@ function renderWords(){
 /* hero 区随当前模板与祝福同步刷新 */
 function renderHero(){
   var t = themeOf(TPL);
-  document.getElementById("verTag").textContent = t.ver + " · " + (t.pool === "xmas" ? "冬日限定" : "今日限定");
+  document.getElementById("verTag").textContent = t.ver + " · " + (t.pool === "xmas" ? "冬日限定" : "今日限定") +
+    (t.id === TODAY_TPL ? " · 今日首发 🌟" : "");
   document.getElementById("cardTitle").textContent = t.prefix + t.name;
   document.getElementById("heroCard").src = t.src;
   var line = currentGreet || (filteredGreetings()[0] || {t:""}).t;
@@ -987,9 +999,18 @@ function tapCard(){
   }
 }
 
-/* ============ R11 卡面贴纸（印进成品图，无需新素材） ============ */
+/* ============ R14 卡面贴纸（印进成品图，无需新素材） ============ */
 var STICKER = "";
 try { STICKER = localStorage.getItem("xmasSticker") || ""; } catch(e){ STICKER = ""; }
+/* R14 贴纸位置：再点一下同一个贴纸就换位置 */
+var STICKER_POS = [
+  { x: 644, y: 306, n: "右上" },
+  { x: 106, y: 306, n: "左上" },
+  { x: 375, y: 286, n: "顶上" }
+];
+var STICKER_PI = 0;
+try { STICKER_PI = parseInt(localStorage.getItem("xmasStickerPos") || "0", 10) || 0; } catch(e){ STICKER_PI = 0; }
+if (STICKER_PI < 0 || STICKER_PI >= STICKER_POS.length) STICKER_PI = 0;
 function renderStickers(){
   var row = document.getElementById("stickRow");
   if (!row) return;
@@ -1005,8 +1026,19 @@ function renderStickers(){
   });
 }
 function setSticker(id){
+  if (id && id === STICKER){
+    /* 已选中的再点一次 → 循环换位置 */
+    STICKER_PI = (STICKER_PI + 1) % STICKER_POS.length;
+    try { localStorage.setItem("xmasStickerPos", String(STICKER_PI)); } catch(e){}
+    renderStickers();
+    toast("📍 贴纸已换到" + STICKER_POS[STICKER_PI].n);
+    return;
+  }
   STICKER = id;
-  try { localStorage.setItem("xmasSticker", id); } catch(e){}
+  try {
+    localStorage.setItem("xmasSticker", id);
+    localStorage.setItem("xmasStickerPos", String(STICKER_PI));
+  } catch(e){}
   renderStickers();
   toast(id ? ("已贴上 " + id + " · 生成时印进图片") : "已去掉贴纸");
 }
@@ -1169,10 +1201,11 @@ function renderCard(tpl, text, receiveLink){
   g.font = "30px serif"; g.fillStyle = "rgba(255,215,130,.9)";
   g.fillText("❄ ─── ✦ ─── ❄", 375, top + blockH + 40);
 
-  /* R11 贴纸：贴在图片区右上，白色圆底 + 微旋转，像真贴上去的 */
+  /* 贴纸：白圆底 + 微旋转，位置可在右上/左上/顶上循环切换（R14） */
   if (STICKER){
+    var sp = STICKER_POS[STICKER_PI] || STICKER_POS[0];
     g.save();
-    g.translate(644, 306);
+    g.translate(sp.x, sp.y);
     g.rotate(-0.16);
     g.shadowColor = "rgba(0,0,0,.38)"; g.shadowBlur = 14; g.shadowOffsetY = 5;
     g.fillStyle = "rgba(255,255,255,.93)";
@@ -1384,7 +1417,7 @@ function openReceived(){
     '<div class="rv-card">' +
       '<p class="ver">' + t.ver + ' · ' + (t.pool === "xmas" ? "冬日限定" : "今日限定") + '</p>' +
       '<h2>' + t.prefix + t.name + '</h2>' +
-      '<p class="greet">' + card.w + '</p>' +
+      '<p class="greet"></p>' +
       (card.h > 0 ? '<p class="rv-sub rv-relay">🔗 接龙第 ' + (card.h + 1) + ' 张 · 拆完可以做一张传下去</p>' : '') +
       '<img src="' + t.src + '" alt="">' +
     '</div>' +
@@ -1392,6 +1425,20 @@ function openReceived(){
       '<button class="rv-mine" onclick="mineOwn()">🎴 我也抽一张，看手气</button>' +
       '<button class="rv-save" onclick="saveReceived()">💾 先保存这张</button>' +
     '</div>';
+  /* R14 祝福语逐字浮现，像有人在念给你听 */
+  var gr = document.querySelector("#rvBox .greet");
+  if (gr) typeGreet(gr, card.w);
+}
+/* R14 打字机：每字 55ms，长句自动加速避免等太久 */
+function typeGreet(el, text){
+  el.textContent = "";
+  var step = text.length > 24 ? 32 : 55;
+  var i = 0;
+  var timer = setInterval(function(){
+    i++;
+    el.textContent = text.slice(0, i);
+    if (i >= text.length) clearInterval(timer);
+  }, step);
 }
 function saveReceived(){
   if (!incoming) return;
