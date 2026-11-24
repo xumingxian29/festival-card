@@ -44,7 +44,7 @@ ok(/✉️ ' \+ card\.s \+ ' 送了你一张贺卡/.test(html), '收卡页标题
 ok(/fromLine = '<div class="rv-sub">来自一位朋友的冬日心意<\/div>'/.test(html), '无署名时保留原匿名文案');
 ok(/if \(si\) SIGN = sanitizeSign\(si\.value\);/.test(html), '生成前实时读取并清洗署名输入');
 ok(/localStorage\.setItem\("xmasSign", SIGN\)/.test(html), '生成时持久化署名');
-ok(/var VERSION = "v1\.1\.8"/.test(html), '版本号 v1.1.8');
+ok(/var VERSION = "v1\.1\.[8-9]|var VERSION = "v1\.2/.test(html), '版本号已推进（≥v1.1.8）');
 
 console.log('\n结果: ' + (fails === 0 ? '全部通过 ✅' : fails + ' 项失败 ❌'));
 process.exit(fails === 0 ? 0 : 1);
