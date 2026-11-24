@@ -460,14 +460,14 @@
 <div class="first-tip" id="firstTip">👆 点「做成贺卡」生成图片，能存相册也能发朋友</div>
 
 <footer>
-  <span id="verInfo">v1.1.8 可点原型 · 2026-11-24</span><br>
+  <span id="verInfo">v1.1.9 可点原型 · 2026-11-24</span><br>
   全程零上传 · 零账号 ｜ 音乐为现场合成，保存的图片不含音频<br>
   <span id="modeTag"></span>
 </footer>
 
-<script src="library.js"></script>
+<script src="library.js?v=20261124"></script>
 <script>
-var VERSION = "v1.1.8";
+var VERSION = "v1.1.9";
 
 /* ============ ⑪ 轻量埋点（纯本地，连点版本号 3 次导出） ============ */
 var STATS = { open:0, receive:0, wish:0, gen:0, share:0, copylink:0, caption:0, joker:0 };
@@ -688,7 +688,7 @@ function sceneGreeting(){
   if (m===12 && day===24) return { tag:"✨ 今天是平安夜，这句最应景", text:"记得吃苹果，圣诞快乐，祝你来年好运 🍎🎁" };
   if (m===12 && day===25) return { tag:"✨ 今天就是圣诞节", text:"圣诞快乐！愿今天全是好消息 🎄" };
   if (m===12 && day>=20) return { tag:"✨ 圣诞倒计时 " + (25-day) + " 天", text:"先把快乐备好，圣诞快乐 🎄✨" };
-  if (m===1 && day===1)  return { tag:"✨ 今天是元旦", text:"新年快乐，圣诞的愿望接着实现 🎆" };
+  /* R16b：元旦等非圣诞分支移除，圣诞季内只出圣诞文案 */
   return null;
 }
 var CATS = [
